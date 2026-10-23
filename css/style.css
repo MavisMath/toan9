@@ -1,0 +1,717 @@
+/* ================================================================
+   GIAO DIỆN GAMIFICATION ĐẤU TRƯỜNG TOÁN 9
+   Hiệu ứng mượt mà, rực rỡ, chuẩn phong cách vừa học vừa chơi
+================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap&subset=vietnamese');
+
+:root {
+  --primary-glow: rgba(244, 114, 182, 0.5);
+  --success-glow: rgba(34, 197, 94, 0.5);
+  --danger-glow: rgba(239, 68, 68, 0.5);
+  --gold-glow: rgba(251, 191, 36, 0.6);
+}
+
+body {
+  font-family: 'Nunito', "Trebuchet MS", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-color: #241323;
+  background-image:
+    radial-gradient(circle, rgba(255, 221, 238, 0.2) 2px, transparent 2.8px),
+    radial-gradient(circle, rgba(255, 171, 209, 0.16) 1.5px, transparent 2.5px),
+    radial-gradient(ellipse 9px 13px at 14px 20px, rgba(255, 214, 234, 0.08) 90%, transparent 100%),
+    radial-gradient(ellipse 9px 13px at 34px 20px, rgba(255, 214, 234, 0.08) 90%, transparent 100%),
+    radial-gradient(circle at 24px 20px, rgba(255, 214, 234, 0.12) 0 3px, transparent 3.5px),
+    radial-gradient(ellipse at 12% 10%, rgba(236, 72, 153, 0.34), transparent 38%),
+    radial-gradient(ellipse at 88% 34%, rgba(190, 24, 93, 0.24), transparent 35%),
+    linear-gradient(145deg, #35182e 0%, #211322 55%, #32162c 100%);
+  background-size: 44px 44px, 44px 44px, 180px 140px, 180px 140px, 180px 140px, auto, auto, auto;
+  background-position: 0 0, 22px 22px, 30px 28px, 30px 28px, 30px 28px, center, center, center;
+  background-attachment: fixed;
+  color: #f1f5f9;
+  overflow-x: hidden;
+}
+
+.site-header.glass-panel {
+  background: #fff1f6;
+  border-color: #f8c6d8;
+  color: #71354c;
+}
+
+.site-header .text-slate-400,
+.site-header .text-slate-500 {
+  color: #9b687c !important;
+}
+
+.site-header .text-slate-200 {
+  color: #71354c !important;
+}
+
+.site-header .border-slate-700,
+.site-header .border-slate-800\/80,
+.site-header .border-slate-800\/60 {
+  border-color: #f3c7d8 !important;
+}
+
+.site-header .brand-mark {
+  background: #f8c6d8;
+  box-shadow: 0 5px 14px rgba(222, 125, 160, 0.22);
+}
+
+.site-header .brand-mark-inner {
+  background: #fff8fb;
+}
+
+.site-header .brand-title {
+  color: #b54c76;
+  background: none;
+  -webkit-text-fill-color: currentColor;
+}
+
+.site-header .brand-badge {
+  background: #ffe1eb;
+  color: #9d4569;
+  border-color: #f3bfd2;
+}
+
+.site-header .profile-chip,
+.site-header .stat-chip {
+  background: #fff8fb;
+  border-color: #f2c6d7;
+}
+
+.site-header .profile-chip:hover {
+  border-color: #e99ab7 !important;
+}
+
+.site-header .level-chip {
+  background: #ffe6ef;
+  color: #a24d70;
+  border-color: #f2c6d7;
+}
+
+.site-header .exp-track {
+  background: #f6dce6;
+}
+
+.site-header .exp-fill {
+  background: #e99ab7;
+}
+
+.site-header .stat-streak {
+  color: #bb6485;
+}
+
+.site-header .stat-heart {
+  color: #d56e91;
+}
+
+.site-header .teacher-shortcut {
+  background: #ffe7ef;
+  color: #98516d;
+  border-color: #f2c6d7;
+}
+
+.site-header nav {
+  background: #ffe8f0;
+  border-color: #f4cada;
+  scrollbar-width: thin;
+}
+
+.site-header .nav-tab-btn {
+  border: 1px solid transparent;
+  background-color: #fff7fa !important;
+  color: #89516a !important;
+  box-shadow: none !important;
+  border-radius: 999px;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.site-header .nav-tab-btn:hover {
+  background-color: #ffe0eb !important;
+  color: #8f3d60 !important;
+  border-color: #f4bfd2;
+  transform: translateY(-1px);
+}
+
+.site-header .nav-tab-btn.bg-blue-600,
+.site-header .nav-tab-btn[class~="bg-blue-600"] {
+  background: #f5b6cc !important;
+  color: #71354c !important;
+  border-color: #e99ab7;
+  box-shadow: 0 3px 8px rgba(196, 97, 135, 0.14) !important;
+}
+
+.site-header .nav-tab-btn span:first-child {
+  font-size: 1rem;
+}
+
+.home-feature-card {
+  border-color: #f1cada !important;
+}
+
+.home-feature-card:hover {
+  border-color: #eaa4be !important;
+}
+
+.home-feature-icon {
+  background: #ffe5ee !important;
+  color: #bd6685 !important;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.math-chat {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 60;
+  font-family: 'Nunito', "Trebuchet MS", sans-serif;
+}
+
+.math-chat-panel {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  right: 0;
+  bottom: 4.25rem;
+  width: min(23rem, calc(100vw - 2rem));
+  height: min(34rem, calc(100dvh - 7rem));
+  min-height: 20rem;
+  overflow: hidden;
+  color: #573448;
+  background: #fff8fb;
+  border: 1px solid #f0bfd1;
+  border-radius: 1.25rem;
+  box-shadow: 0 16px 48px rgba(80, 29, 54, 0.3);
+}
+
+.math-chat-panel[hidden] {
+  display: none;
+}
+
+.math-chat-header {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.85rem 1rem;
+  background: #ffe7f0;
+  border-bottom: 1px solid #f3cad9;
+}
+
+.math-chat-avatar {
+  display: grid;
+  flex: 0 0 2.6rem;
+  width: 2.6rem;
+  height: 2.6rem;
+  place-items: center;
+  background: #fff8fb;
+  border-radius: 50%;
+  font-size: 1.4rem;
+}
+
+.math-chat-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.math-chat-heading h2 {
+  margin: 0;
+  color: #984866;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.math-chat-heading p,
+.math-chat-disclaimer {
+  margin: 0.1rem 0 0;
+  color: #966d7e;
+  font-size: 0.7rem;
+}
+
+.math-chat-close {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  color: #85435e;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.math-chat-close:hover {
+  background: #fbd5e3;
+}
+
+.math-chat-messages {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.chat-message {
+  max-width: 90%;
+  padding: 0.65rem 0.8rem;
+  border-radius: 1rem;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.chat-message-bot {
+  align-self: flex-start;
+  background: #ffedf3;
+  border: 1px solid #f6d5e1;
+  border-bottom-left-radius: 0.35rem;
+  white-space: normal;
+  color: #3f1d2e;
+}
+
+.chat-message-bot strong {
+  font-weight: 700;
+  color: #831843;
+}
+
+.chat-message-bot em {
+  font-style: italic;
+}
+
+.chat-message-bot .chat-bullet-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0.25rem 0;
+}
+
+.chat-message-bot .chat-bullet {
+  color: #db2777;
+  font-weight: bold;
+  flex-shrink: 0;
+  line-height: 1.5;
+}
+
+.chat-message-bot .chat-bullet-text {
+  flex: 1;
+}
+
+.chat-message-bot .chat-heading {
+  font-weight: 700;
+  color: #831843;
+  margin: 0.5rem 0 0.2rem;
+}
+
+.chat-message-bot .chat-code {
+  background: rgba(219, 39, 119, 0.12);
+  color: #9d174d;
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.25rem;
+  font-family: monospace;
+  font-size: 0.88em;
+}
+
+.chat-message-bot .chat-code-block {
+  background: #2b1f28;
+  color: #fce7f3;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  margin: 0.4rem 0;
+  overflow-x: auto;
+  font-family: monospace;
+  font-size: 0.85em;
+}
+
+.chat-message-bot .chat-math-block {
+  display: block;
+  text-align: center;
+  margin: 0.5rem 0;
+  padding: 0.35rem 0.5rem;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
+
+.chat-message-bot .katex {
+  font-size: 1.08em;
+  color: #3b0764;
+}
+
+.chat-message-bot .katex-display {
+  margin: 0.3em 0;
+}
+
+.chat-message-user {
+  align-self: flex-end;
+  color: #fff;
+  background: #c76087;
+  border-bottom-right-radius: 0.35rem;
+}
+
+.math-chat-suggestions {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0 0.8rem 0.7rem;
+  overflow-x: auto;
+}
+
+.chat-suggestion {
+  flex: 0 0 auto;
+  padding: 0.38rem 0.6rem;
+  color: #884561;
+  background: #fff0f5;
+  border: 1px solid #efc4d4;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.chat-suggestion:hover {
+  background: #fbdce7;
+}
+
+.math-chat-form {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.7rem 0.8rem;
+  border-top: 1px solid #f3d6e0;
+}
+
+.math-chat-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.65rem 0.75rem;
+  color: #573448;
+  background: #fff;
+  border: 1px solid #e8bfd0;
+  border-radius: 0.8rem;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.math-chat-form input:focus {
+  outline: 2px solid #e99ab7;
+  outline-offset: 1px;
+}
+
+.math-chat-form button {
+  padding: 0 0.95rem;
+  color: white;
+  background: #c76087;
+  border: 0;
+  border-radius: 0.8rem;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.math-chat-form button:hover,
+.math-chat-toggle:hover {
+  background: #ad4c73;
+}
+
+.math-chat-disclaimer {
+  padding: 0 0.8rem 0.65rem;
+  font-size: 0.65rem;
+}
+
+.math-chat-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 3.25rem;
+  padding: 0.65rem 1rem;
+  color: #fff;
+  background: #c76087;
+  border: 2px solid #fff1f6;
+  border-radius: 999px;
+  box-shadow: 0 6px 22px rgba(80, 29, 54, 0.28);
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.math-chat-toggle span:first-child {
+  font-size: 1.3rem;
+}
+
+@media (max-width: 480px) {
+  .math-chat {
+    right: max(0.75rem, env(safe-area-inset-right));
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+
+  .math-chat-panel {
+    bottom: 4rem;
+    height: min(34rem, calc(100dvh - 6rem));
+  }
+}
+
+/* Glassmorphism hiệu ứng gương mờ */
+.glass-panel {
+  background: rgba(43, 22, 40, 0.9);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 214, 234, 0.16);
+}
+
+.glass-card {
+  background: rgba(55, 27, 49, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 214, 234, 0.12);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(249, 168, 212, 0.55);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 20px rgba(244, 114, 182, 0.2);
+}
+
+/* Glowing text and borders */
+.glow-text-gold {
+  text-shadow: 0 0 12px rgba(251, 191, 36, 0.6);
+}
+
+.glow-text-blue {
+  text-shadow: 0 0 12px rgba(244, 114, 182, 0.6);
+}
+
+.glow-box-gold {
+  box-shadow: 0 0 25px rgba(251, 191, 36, 0.35);
+}
+
+/* Điểm nhấn hồng pastel đồng bộ với nền kawaii */
+[class*="bg-blue-"] {
+  background-color: rgba(219, 39, 119, 0.2) !important;
+}
+
+[class*="bg-indigo-"] {
+  background-color: rgba(157, 23, 77, 0.22) !important;
+}
+
+[class~="bg-blue-600"] {
+  background-color: #db2777 !important;
+}
+
+[class*="hover:bg-blue-"]:hover {
+  background-color: rgba(190, 24, 93, 0.38) !important;
+}
+
+[class*="text-blue-"] {
+  color: #f9a8d4 !important;
+}
+
+[class*="text-indigo-"],
+[class*="text-cyan-"] {
+  color: #fbcfe8 !important;
+}
+
+[class*="border-blue-"] {
+  border-color: rgba(249, 168, 212, 0.42) !important;
+}
+
+[class*="border-indigo-"] {
+  border-color: rgba(244, 114, 182, 0.35) !important;
+}
+
+[class*="from-blue-"] {
+  --tw-gradient-from: #db2777 var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(219 39 119 / 0) var(--tw-gradient-to-position) !important;
+}
+
+[class*="from-cyan-"],
+[class*="from-indigo-"] {
+  --tw-gradient-from: #ec4899 var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(236 72 153 / 0) var(--tw-gradient-to-position) !important;
+}
+
+[class*="to-blue-"],
+[class*="to-cyan-"],
+[class*="to-indigo-"] {
+  --tw-gradient-to: #be185d var(--tw-gradient-to-position) !important;
+}
+
+[class*="via-indigo-"] {
+  --tw-gradient-to: rgb(190 24 93 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), #9d174d var(--tw-gradient-via-position), var(--tw-gradient-to) !important;
+}
+
+[class*="via-cyan-"] {
+  --tw-gradient-to: rgb(251 207 232 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), #fbcfe8 var(--tw-gradient-via-position), var(--tw-gradient-to) !important;
+}
+
+/* Boss shake khi bị tấn công */
+@keyframes shake {
+  0%, 100% { transform: translateX(0) scale(1); }
+  20%, 60% { transform: translateX(-8px) scale(0.96); filter: drop-shadow(0 0 15px #ef4444); }
+  40%, 80% { transform: translateX(8px) scale(1.02); filter: drop-shadow(0 0 25px #f59e0b); }
+}
+
+.boss-hit-animation {
+  animation: shake 0.4s ease-in-out;
+}
+
+/* Level Up pop-up animation */
+@keyframes popIn {
+  0% { transform: scale(0.6); opacity: 0; }
+  70% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+.animate-pop-in {
+  animation: popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Floating animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Combo Fever Flame Pulse */
+@keyframes flamePulse {
+  0%, 100% { box-shadow: 0 0 15px rgba(249, 115, 22, 0.4); border-color: rgba(249, 115, 22, 0.6); }
+  50% { box-shadow: 0 0 35px rgba(239, 68, 68, 0.8); border-color: rgba(239, 68, 68, 1); }
+}
+
+.combo-fever {
+  animation: flamePulse 1.2s infinite alternate;
+}
+
+/* Math formula styling in KaTeX */
+.katex-display {
+  margin: 0.8em 0 !important;
+  padding: 0.5em 0.8em;
+  background: rgba(31, 17, 31, 0.72);
+  border-radius: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.katex {
+  font-size: 1.12em;
+  color: #f8fafc;
+}
+
+/* Nút bấm câu hỏi */
+.option-btn {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.option-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: #f472b6;
+  background-color: rgba(190, 24, 93, 0.3);
+}
+
+.option-btn.selected-correct {
+  background: linear-gradient(135deg, #15803d, #16a34a) !important;
+  border-color: #4ade80 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
+}
+
+.option-btn.selected-wrong {
+  background: linear-gradient(135deg, #b91c1c, #dc2626) !important;
+  border-color: #f87171 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+}
+
+/* PvP 1v1 Split Screen */
+.pvp-player-1 {
+  background: linear-gradient(180deg, rgba(236, 72, 153, 0.2) 0%, rgba(43, 22, 40, 0.88) 100%);
+  border-color: rgba(244, 114, 182, 0.5);
+}
+
+.pvp-player-2 {
+  background: linear-gradient(180deg, rgba(196, 181, 253, 0.16) 0%, rgba(43, 22, 40, 0.88) 100%);
+  border-color: rgba(196, 181, 253, 0.42);
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #241323;
+}
+::-webkit-scrollbar-thumb {
+  background: #9d4f79;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #c75b91;
+}
+
+/* Animation cho Modal & Notifications */
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-pop-in {
+  animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.auth-glow-box {
+  box-shadow: 0 0 30px rgba(236, 72, 153, 0.2), 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+}
+
+/* In ấn đề thi dành cho Giáo viên (@media print) */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .no-print, nav, header, button, .tabs-bar, #audio-controls {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .print-page {
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  .katex {
+    color: #000000 !important;
+  }
+}
