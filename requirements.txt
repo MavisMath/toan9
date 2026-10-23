@@ -1,0 +1,3 @@
+# Toan 9 Web & Chatbot
+# pyodbc kết nối máy chủ Python với SQL Server.
+pyodbc>=5.1

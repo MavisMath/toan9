@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Toán 9 with Mavis xinh gái</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- KaTeX CSS & JS for rendering beautiful math formulas -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+  <!-- Canvas Confetti for victory celebration -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+  <!-- Custom Game CSS -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body class="min-h-screen flex flex-col text-slate-100 selection:bg-pink-500 selection:text-white">
+
+  <!-- ============================================================== -->
+  <!-- HEADER & TOPBAR THÔNG TIN HỌC SINH -->
+  <!-- ============================================================== -->
+  <header class="site-header sticky top-0 z-40 glass-panel border-b border-slate-800/80 shadow-lg no-print">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+
+      <!-- Logo & Tên Trường / Web -->
+      <div class="flex items-center gap-3 cursor-pointer" onclick="app.showTab('home')">
+        <div class="brand-mark w-11 h-11 rounded-2xl p-0.5">
+          <div class="brand-mark-inner w-full h-full rounded-2xl flex items-center justify-center text-xl">
+            🐱
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="brand-title font-black text-lg md:text-xl tracking-tight">
+              Toán 9 with Mavis xinh gái
+            </span>
+            <span class="brand-badge text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border">
+              GDPT 2018
+            </span>
+          </div>
+          <div class="text-[11px] text-slate-400 font-medium">Hệ thống ôn luyện vừa học vừa chơi</div>
+        </div>
+      </div>
+
+      <!-- Hồ sơ học sinh & Thanh tiến trình EXP -->
+      <div class="flex items-center gap-3 md:gap-5">
+        <!-- Avatar & Tên -->
+        <div onclick="app.showProfileModal()"
+          class="profile-chip flex items-center gap-2.5 p-1.5 md:px-3 md:py-1.5 rounded-2xl border cursor-pointer transition">
+          <span id="player-avatar" class="text-2xl">🐱</span>
+          <div class="hidden sm:block text-left">
+            <div class="flex items-center gap-1.5">
+              <span id="player-name" class="font-bold text-xs text-slate-200">Chiến Binh Toán 9</span>
+              <span id="player-level" class="level-chip text-[10px] font-black px-1.5 py-0.2 rounded border">Lv.1</span>
+            </div>
+            <!-- Thanh EXP nhỏ -->
+            <div class="exp-track w-24 rounded-full h-1.5 mt-1 overflow-hidden">
+              <div id="player-exp-bar" class="exp-fill h-full rounded-full transition-all" style="width: 20%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chuỗi ngày & Kim Cương -->
+        <div class="flex items-center gap-2 text-xs font-bold">
+          <div class="stat-chip stat-streak flex items-center gap-1 px-2.5 py-1.5 rounded-xl border shadow-sm"
+            title="Chuỗi ngày chăm chỉ">
+            <span>🌸</span>
+            <span id="player-streak">0</span>
+          </div>
+          <div class="stat-chip stat-heart flex items-center gap-1 px-2.5 py-1.5 rounded-xl border shadow-sm"
+            title="Kim cương tích lũy">
+            <span>💗</span>
+            <span id="player-diamonds">50</span>
+          </div>
+        </div>
+
+        <!-- Nút Đăng Nhập / Đăng Xuất -->
+        <div id="auth-topbar-actions" class="flex items-center gap-1.5"></div>
+
+        <!-- Nút Âm Thanh & Góc Giáo Viên -->
+        <div class="flex items-center gap-2">
+          <button id="sound-toggle-btn"
+            class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-blue-600/30 text-blue-300 border border-blue-500/40 hover:bg-blue-600/40 transition">
+            🎀 Bật
+          </button>
+          <button onclick="app.showTab('more')"
+            class="teacher-shortcut hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border shadow-sm transition">
+            <span>🌷</span>
+            <span>Game toán</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Thanh Navigation Tabs Cuộn Ngang -->
+    <nav
+      class="max-w-7xl mx-auto px-4 py-2 border-t border-slate-800/60 overflow-x-auto flex gap-1.5 scrollbar-none text-xs font-bold">
+      <button onclick="app.showTab('home')" id="nav-home"
+        class="nav-tab-btn px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shrink-0 bg-blue-600 text-white shadow-lg">
+        <span>🐱</span><span>Trang Chủ</span>
+      </button>
+      <button onclick="app.showTab('topics')" id="nav-topics"
+        class="nav-tab-btn px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shrink-0 text-slate-400 hover:text-white hover:bg-slate-800">
+        <span>🌸</span><span>BT cơ bản</span>
+      </button>
+      <button onclick="app.showTab('advanced')" id="nav-advanced"
+        class="nav-tab-btn px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shrink-0 text-amber-300 hover:text-white hover:bg-slate-800 border border-amber-500/40">
+        <span>⚡</span><span>BT Nâng Cao</span>
+        <span
+          class="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">Điền
+          số</span>
+      </button>
+      <button onclick="app.showTab('more')" id="nav-more"
+        class="nav-tab-btn px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shrink-0 text-purple-300 hover:text-white hover:bg-slate-800 border border-purple-500/40">
+        <span>🌷</span><span>Game mavis</span>
+        <span
+          class="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40">7
+          mục ▾</span>
+      </button>
+    </nav>
+  </header>
+
+  <!-- ============================================================== -->
+  <!-- MAIN VIEWS CONTAINER -->
+  <!-- ============================================================== -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">
+
+    <!-- 1. VIEW TRANG CHỦ -->
+    <div id="view-home" class="tab-view">
+      <div id="home-content"></div>
+    </div>
+
+    <!-- 2. VIEW LEO THÁP TRI THỨC -->
+    <div id="view-tower" class="tab-view hidden">
+      <div id="tower-content"></div>
+    </div>
+
+    <!-- 3. VIEW 60S TỐC ĐỘ -->
+    <div id="view-speed" class="tab-view hidden">
+      <div id="speed-container"></div>
+    </div>
+
+    <!-- 4. VIEW CHUYÊN ĐỀ GDPT 2018 -->
+    <div id="view-topics" class="tab-view hidden">
+      <div id="topics-content"></div>
+    </div>
+
+    <!-- 5. VIEW SONG ĐẤU 1v1 -->
+    <div id="view-pvp" class="tab-view hidden">
+      <div id="pvp-container"></div>
+    </div>
+
+    <!-- 6. VIEW ĐỀ THI HỌC KỲ -->
+    <div id="view-exams" class="tab-view hidden">
+      <div id="exams-content"></div>
+    </div>
+
+    <!-- 7. VIEW SỔ TAY CÔNG THỨC -->
+    <div id="view-cheatsheet" class="tab-view hidden">
+      <div id="cheatsheet-content"></div>
+    </div>
+
+    <!-- 8. VIEW BẢNG VÀNG -->
+    <div id="view-leaderboard" class="tab-view hidden">
+      <div id="leaderboard-content"></div>
+    </div>
+
+    <!-- 9. VIEW GÓC THẦY CÔ -->
+    <div id="view-teacher" class="tab-view hidden">
+      <div id="teacher-content"></div>
+    </div>
+
+    <!-- 10. VIEW BÀI TẬP NÂNG CAO (ĐIỀN ĐÁP ÁN) -->
+    <div id="view-advanced" class="tab-view hidden">
+      <div id="advanced-content"></div>
+    </div>
+
+    <!-- 11. VIEW MỞ RỘNG (GOM CÁC TÍNH NĂNG) -->
+    <div id="view-more" class="tab-view hidden">
+      <div id="more-content"></div>
+    </div>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="mt-auto py-6 border-t border-slate-800 text-center text-xs text-slate-500 no-print">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-3">
+      <div>
+        <span>Toán Học 9 - Chương Trình Giáo Dục Phổ Thông 2018</span>
+      </div>
+      <div>
+        <span>Thiết kế dành cho giáo viên & học sinh lớp 9 ôn thi hiệu quả</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- POPUP CONTAINER -->
+  <div id="modal-container"></div>
+
+  <!-- CHATBOT HỎI ĐÁP TOÁN HỌC -->
+  <section class="math-chat no-print" aria-label="Chatbot hỏi đáp Toán học">
+    <div id="math-chat-panel" class="math-chat-panel" aria-labelledby="math-chat-title" hidden>
+      <div class="math-chat-header">
+        <div class="math-chat-avatar" aria-hidden="true">🐱</div>
+        <div class="math-chat-heading">
+          <h2 id="math-chat-title">Mèo Toán Thông Thái</h2>
+          <p>Hỏi kiến thức Toán & ứng dụng đời sống</p>
+        </div>
+        <button id="math-chat-reset" class="math-chat-close" type="button" title="Làm mới cuộc trò chuyện"
+          aria-label="Làm mới">🔄</button>
+        <button id="math-chat-close" class="math-chat-close" type="button" aria-label="Đóng khung chat">×</button>
+      </div>
+      <div id="math-chat-messages" class="math-chat-messages" role="log" aria-live="polite" aria-relevant="additions">
+        <div class="chat-message chat-message-bot">
+          Chào bạn! Mình có thể giải thích kiến thức Toán cơ bản và gợi ý cách áp dụng vào đời sống. Bạn thử hỏi về phần
+          trăm, phương trình, hình học hoặc thống kê nhé 🌸
+        </div>
+      </div>
+      <div class="math-chat-suggestions" aria-label="Câu hỏi gợi ý">
+        <button type="button" class="chat-suggestion">Phần trăm dùng thế nào?</button>
+        <button type="button" class="chat-suggestion">Định lý Pythagore là gì?</button>
+        <button type="button" class="chat-suggestion">Ứng dụng phương trình?</button>
+      </div>
+      <form id="math-chat-form" class="math-chat-form">
+        <label class="sr-only" for="math-chat-input">Nhập câu hỏi Toán học</label>
+        <input id="math-chat-input" type="text" maxlength="500" autocomplete="off" placeholder="Nhập câu hỏi của bạn..."
+          required>
+        <button type="submit" aria-label="Gửi câu hỏi">Gửi</button>
+      </form>
+      <p class="math-chat-disclaimer">Câu hỏi được gửi tới Google Gemini để trả lời. Đối chiếu lại lời giải với giáo
+        viên khi cần.</p>
+    </div>
+    <button id="math-chat-toggle" class="math-chat-toggle" type="button" aria-expanded="false"
+      aria-controls="math-chat-panel">
+      <span aria-hidden="true">🐱</span>
+      <span>Hỏi Mèo Toán</span>
+    </button>
+  </section>
+
+  <!-- JAVASCRIPT MODULES -->
+  <script src="js/data.js"></script>
+  <script src="js/advanced_data.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/chatbot.js"></script>
+</body>
+
+</html>
