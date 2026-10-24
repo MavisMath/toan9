@@ -1,0 +1,13 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.vscode
+.env
+apikey.env
+cloudflared.exe
+HoctoanwithMavisxinhgai-deploy.zip
+node_modules
+*.log

@@ -1,0 +1,15 @@
+services:
+  toan9-app:
+    build: .
+    container_name: toan9_mavis
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - NO_BROWSER=1
+      - SQLITE_DB_PATH=/app/data/toan9.db
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    volumes:
+      # Lưu trữ CSDL SQLite trên máy host, không bị mất khi tạo lại container
+      - ./data:/app/data
+    restart: unless-stopped

@@ -24,7 +24,13 @@ import threading
 import time
 import database
 
-PORT = 8080
+DEFAULT_PORT = 8080
+
+def get_port():
+    try:
+        return int(os.environ.get("PORT", DEFAULT_PORT))
+    except (ValueError, TypeError):
+        return DEFAULT_PORT
 GEMINI_MODELS = ["gemini-flash-lite-latest", "gemini-flash-latest", "gemini-2.5-flash", "gemini-pro-latest"]
 MAX_REQUEST_BYTES = 64 * 1024
 MAX_CHAT_MESSAGES = 16
@@ -437,23 +443,32 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
 def main():
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     load_local_env()
+    port = get_port()
     local_ip = get_local_ip()
+    db_status = database.get_database_status()
     
     print("=" * 65)
     print("       ĐẤU TRƯỜNG TOÁN 9 - MÁY CHỦ ÔN TẬP VỪA HỌC VỪA CHƠI")
     print("=" * 65)
-    print(f"[*] May chu dang khoi chay tai cong {PORT}...")
-    print(f"[*] May tinh cua Thay/Co truy cap: http://localhost:{PORT}")
-    print(f"[*] Hoc sinh trong lop truy cap qua Wi-Fi: http://{local_ip}:{PORT}")
+    print(f"[*] May chu dang khoi chay tai cong {port}...")
+    print(f"[*] Co so du lieu: {db_status.get('engine', 'sqlite').upper()} ({db_status.get('database')})")
+    print(f"[*] May tinh cua Thay/Co truy cap: http://localhost:{port}")
+    print(f"[*] Hoc sinh trong lop truy cap qua Wi-Fi: http://{local_ip}:{port}")
     print(f"[*] Chatbot Gemini: {'da cau hinh API key' if os.environ.get('GEMINI_API_KEY') else 'chua cau hinh API key'}")
     print("=" * 65)
     print("[*] Nhan Ctrl + C tren ban phim de dung may chu.")
     print("=" * 65)
 
-    # Tu dong mo trinh duyet
-    webbrowser.open(f"http://localhost:{PORT}")
+    # Chi tu dong mo trinh duyet neu khong o trong moi truong Docker/Cloud/Headless
+    no_browser = os.environ.get("NO_BROWSER", "").strip().lower() in ("1", "true", "yes")
+    is_cloud = bool(os.environ.get("RENDER"))
+    if not no_browser and not is_cloud:
+        try:
+            webbrowser.open(f"http://localhost:{port}")
+        except Exception:
+            pass
 
-    with http.server.ThreadingHTTPServer(("", PORT), CustomHandler) as httpd:
+    with http.server.ThreadingHTTPServer(("", port), CustomHandler) as httpd:
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:

@@ -1,2 +1,14 @@
 .env
+apikey.env
+*.env
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db*
+*.sqlite*
+data/
+cloudflared.exe
+*.zip
+*.log
+.vscode/

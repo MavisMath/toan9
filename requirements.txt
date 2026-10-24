@@ -1,3 +1,6 @@
-# Toan 9 Web & Chatbot
-# pyodbc kết nối máy chủ Python với SQL Server.
-pyodbc>=5.1
+# Hệ thống Toán 9 with Mavis (GDPT 2018)
+# Máy chủ và CSDL mặc định sử dụng các module tích hợp sẵn trong Python (sqlite3, http.server, urllib, json).
+# Không bắt buộc cài thêm thư viện ngoài khi chạy trên Docker hoặc Render!
+
+# Tùy chọn (chỉ bỏ comment nếu chạy trên Windows và muốn kết nối trực tiếp với Microsoft SQL Server qua ODBC):
+# pyodbc>=5.1
