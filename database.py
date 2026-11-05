@@ -1003,7 +1003,7 @@ def get_documents_metadata():
             return "chuyen_de", "Chuyên Đề & Đáp Án", "📑"
 
     for root, dirs, files in os.walk(base_dir):
-        dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ('__pycache__', 'tools', 'css', 'js', '.vscode', '.git', 'data')]
+        dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ('__pycache__', 'tools', 'css', 'js', '.vscode', '.git', 'docs')]
         for f in sorted(files):
             if f.lower().endswith(('.pdf', '.docx', '.doc')):
                 full_path = os.path.join(root, f)

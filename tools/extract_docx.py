@@ -5,7 +5,10 @@ import xml.etree.ElementTree as ET
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-folder = r'chuyen-de-co-ban-mon-toan-9-ket-noi-tri-thuc-voi-cuoc-song-tap-1'
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+folder = os.path.join(base_dir, 'data', 'chuyen-de-co-ban-mon-toan-9-ket-noi-tri-thuc-voi-cuoc-song-tap-1')
+if not os.path.exists(folder):
+    folder = os.path.join(base_dir, 'chuyen-de-co-ban-mon-toan-9-ket-noi-tri-thuc-voi-cuoc-song-tap-1')
 
 def read_docx_paragraphs(file_path):
     with zipfile.ZipFile(file_path) as z:

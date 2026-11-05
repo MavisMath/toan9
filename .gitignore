@@ -1,14 +1,47 @@
+# Environment & Secrets
 .env
 apikey.env
 *.env
+
+# Python Cache & Bytecode
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.db*
-*.sqlite*
-data/
+*.py[cod]
+*$py.class
+
+# SQLite Database & Runtime Data
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+data/*.db*
+data/*.sqlite*
+
+# Executables & Binaries (Use GitHub Releases for binary distributions)
 cloudflared.exe
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Compressed Archives
 *.zip
-*.log
+*.tar.gz
+*.rar
+*.7z
+
+# IDE & Editor Configurations
 .vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Logs & Temporary Files
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# OS Generated Files
+.DS_Store
+Thumbs.db
+Desktop.ini
