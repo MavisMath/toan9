@@ -31,7 +31,7 @@ def get_port():
         return int(os.environ.get("PORT", DEFAULT_PORT))
     except (ValueError, TypeError):
         return DEFAULT_PORT
-GEMINI_MODELS = ["gemini-flash-lite-latest", "gemini-flash-latest", "gemini-2.5-flash", "gemini-pro-latest"]
+GEMINI_MODELS = ["gemini-flash-lite-latest", "gemini-flash-latest"]
 MAX_REQUEST_BYTES = 64 * 1024
 MAX_CHAT_MESSAGES = 16
 CHAT_RATE_LIMIT = 10
