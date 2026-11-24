@@ -32,7 +32,7 @@ def get_port():
         return int(os.environ.get("PORT", DEFAULT_PORT))
     except (ValueError, TypeError):
         return DEFAULT_PORT
-GEMINI_MODELS = ["gemini-3.5-flash-lite", "gemini-flash-lite-latest"]
+GEMINI_MODELS = ["gemini-flash-lite-latest", "gemini-3-flash-preview", "gemini-3.5-flash-lite"]
 MAX_REQUEST_BYTES = 64 * 1024
 MAX_CHAT_MESSAGES = 16
 CHAT_RATE_LIMIT = 10
@@ -555,48 +555,43 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
         last_error = None
         last_error_code = None
 
-        # Thử lần lượt các model trong GEMINI_MODELS (tối đa 2 vòng nếu gặp 503 tạm thời)
-        for attempt in range(2):
-            for model in GEMINI_MODELS:
-                request = urllib.request.Request(
-                    f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={urllib.parse.quote(api_key)}",
-                    data=request_body,
-                    headers={
-                        "Content-Type": "application/json",
-                        "x-goog-api-key": api_key
-                    },
-                    method="POST"
-                )
+        # Thử lần lượt các model trong GEMINI_MODELS với timeout 6s
+        for model in GEMINI_MODELS:
+            request = urllib.request.Request(
+                f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={urllib.parse.quote(api_key)}",
+                data=request_body,
+                headers={
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": api_key
+                },
+                method="POST"
+            )
 
-                try:
-                    with urllib.request.urlopen(request, timeout=10) as response:
-                        result = json.loads(response.read().decode("utf-8"))
-                        print(f"[*] Gemini thanh cong voi model {model}.")
-                        break
-                except urllib.error.HTTPError as error:
-                    last_error = error
-                    last_error_code = error.code
-                    print(f"[!] Model {model} tra ve HTTP {error.code}.")
-                    if error.code in (400, 401, 403):
-                        self.send_json(502, {"error": "API key không hợp lệ hoặc thiếu quyền truy cập (HTTP 403/400). Hãy kiểm tra lại GEMINI_API_KEY."})
-                        return
-                    elif error.code == 429:
-                        self.send_json(429, {"error": "Đã hết lượt gọi miễn phí hoặc vượt hạn mức (HTTP 429). Vui lòng đợi ít phút rồi thử lại."})
-                        return
-                    time.sleep(0.6)
-                    continue
-                except (urllib.error.URLError, TimeoutError) as error:
-                    last_error = error
-                    print(f"[!] Model {model} loi ket noi: {error}")
-                    time.sleep(0.5)
-                    continue
-                except (UnicodeDecodeError, json.JSONDecodeError) as error:
-                    last_error = error
-                    print(f"[!] Model {model} phan hoi khong doc duoc: {error}")
-                    continue
-
-            if result is not None:
-                break
+            try:
+                with urllib.request.urlopen(request, timeout=6) as response:
+                    result = json.loads(response.read().decode("utf-8"))
+                    print(f"[*] Gemini thanh cong voi model {model}.")
+                    break
+            except urllib.error.HTTPError as error:
+                last_error = error
+                last_error_code = error.code
+                print(f"[!] Model {model} tra ve HTTP {error.code}.")
+                if error.code in (400, 401, 403):
+                    self.send_json(502, {"error": "API key không hợp lệ hoặc thiếu quyền truy cập (HTTP 403/400). Hãy kiểm tra lại GEMINI_API_KEY."})
+                    return
+                elif error.code == 429:
+                    self.send_json(429, {"error": "Đã hết lượt gọi miễn phí hoặc vượt hạn mức (HTTP 429). Vui lòng đợi ít phút rồi thử lại."})
+                    return
+                time.sleep(0.3)
+                continue
+            except (urllib.error.URLError, TimeoutError) as error:
+                last_error = error
+                print(f"[!] Model {model} loi ket noi hoac qua han 6s: {error}")
+                continue
+            except (UnicodeDecodeError, json.JSONDecodeError) as error:
+                last_error = error
+                print(f"[!] Model {model} phan hoi khong doc duoc: {error}")
+                continue
 
         if result is None:
             if last_error_code == 429:

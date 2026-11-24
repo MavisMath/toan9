@@ -499,7 +499,7 @@ class MathChatbot {
     } catch (error) {
       this.updateMessageContent(
         loadingMessage,
-        `Không gửi được câu hỏi: ${error.message} Nếu bạn đang mở trực tiếp file HTML, hãy chạy Chay_Trang_Web.bat để dùng chatbot.`,
+        `Mèo đang gặp chút gián đoạn kết nối (${error.message}). Bạn thử bấm gửi lại câu hỏi nhé!`,
         'bot'
       );
     } finally {
