@@ -32,7 +32,7 @@ def get_port():
         return int(os.environ.get("PORT", DEFAULT_PORT))
     except (ValueError, TypeError):
         return DEFAULT_PORT
-GEMINI_MODELS = ["gemini-flash-lite-latest", "gemini-flash-latest"]
+GEMINI_MODELS = ["gemini-3.5-flash-lite", "gemini-flash-lite-latest"]
 MAX_REQUEST_BYTES = 64 * 1024
 MAX_CHAT_MESSAGES = 16
 CHAT_RATE_LIMIT = 10
@@ -53,23 +53,27 @@ SYSTEM_INSTRUCTION = (
 
 
 def load_local_env():
-    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
-    if not os.path.isfile(env_path):
-        return
-
-    try:
-        with open(env_path, "r", encoding="utf-8") as env_file:
-            for line in env_file:
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                name, value = line.split("=", 1)
-                name = name.strip()
-                value = value.strip().strip("\"'")
-                if name and name not in os.environ:
-                    os.environ[name] = value
-    except OSError as error:
-        print(f"[!] Khong doc duoc file .env: {error}")
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(base_dir, ".env"),
+        os.path.join(base_dir, "apikey.env")
+    ]
+    for env_path in candidates:
+        if not os.path.isfile(env_path):
+            continue
+        try:
+            with open(env_path, "r", encoding="utf-8") as env_file:
+                for line in env_file:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    name, value = line.split("=", 1)
+                    name = name.strip()
+                    value = value.strip().strip("\"'")
+                    if name and name not in os.environ:
+                        os.environ[name] = value
+        except OSError as error:
+            print(f"[!] Khong doc duoc file {os.path.basename(env_path)}: {error}")
 
 
 def is_rate_limited(client_ip):
@@ -549,44 +553,60 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
         }).encode("utf-8")
         result = None
         last_error = None
+        last_error_code = None
 
-        for model in GEMINI_MODELS:
-            request = urllib.request.Request(
-                f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={urllib.parse.quote(api_key)}",
-                data=request_body,
-                headers={
-                    "Content-Type": "application/json",
-                    "x-goog-api-key": api_key
-                },
-                method="POST"
-            )
+        # Thử lần lượt các model trong GEMINI_MODELS (tối đa 2 vòng nếu gặp 503 tạm thời)
+        for attempt in range(2):
+            for model in GEMINI_MODELS:
+                request = urllib.request.Request(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={urllib.parse.quote(api_key)}",
+                    data=request_body,
+                    headers={
+                        "Content-Type": "application/json",
+                        "x-goog-api-key": api_key
+                    },
+                    method="POST"
+                )
 
-            try:
-                with urllib.request.urlopen(request, timeout=20) as response:
-                    result = json.loads(response.read().decode("utf-8"))
-                    print(f"[*] Gemini thanh cong voi model {model}.")
-                    break
-            except urllib.error.HTTPError as error:
-                last_error = error
-                print(f"[!] Model {model} tra ve HTTP {error.code}.")
-                if error.code in (401, 403):
-                    self.send_json(502, {"error": "Gemini từ chối API key. Hãy kiểm tra lại key và quyền truy cập."})
-                    return
-                time.sleep(0.3)
-                continue
-            except (urllib.error.URLError, TimeoutError) as error:
-                last_error = error
-                print(f"[!] Model {model} loi ket noi: {error}")
-                time.sleep(0.3)
-                continue
-            except (UnicodeDecodeError, json.JSONDecodeError) as error:
-                last_error = error
-                print(f"[!] Model {model} phan hoi khong doc duoc: {error}")
-                continue
+                try:
+                    with urllib.request.urlopen(request, timeout=10) as response:
+                        result = json.loads(response.read().decode("utf-8"))
+                        print(f"[*] Gemini thanh cong voi model {model}.")
+                        break
+                except urllib.error.HTTPError as error:
+                    last_error = error
+                    last_error_code = error.code
+                    print(f"[!] Model {model} tra ve HTTP {error.code}.")
+                    if error.code in (400, 401, 403):
+                        self.send_json(502, {"error": "API key không hợp lệ hoặc thiếu quyền truy cập (HTTP 403/400). Hãy kiểm tra lại GEMINI_API_KEY."})
+                        return
+                    elif error.code == 429:
+                        self.send_json(429, {"error": "Đã hết lượt gọi miễn phí hoặc vượt hạn mức (HTTP 429). Vui lòng đợi ít phút rồi thử lại."})
+                        return
+                    time.sleep(0.6)
+                    continue
+                except (urllib.error.URLError, TimeoutError) as error:
+                    last_error = error
+                    print(f"[!] Model {model} loi ket noi: {error}")
+                    time.sleep(0.5)
+                    continue
+                except (UnicodeDecodeError, json.JSONDecodeError) as error:
+                    last_error = error
+                    print(f"[!] Model {model} phan hoi khong doc duoc: {error}")
+                    continue
+
+            if result is not None:
+                break
 
         if result is None:
-            if isinstance(last_error, urllib.error.HTTPError) and last_error.code in (429, 503):
-                self.send_json(502, {"error": "Máy chủ Google Gemini đang tạm thời bận. Bạn vui lòng thử lại sau vài giây."})
+            if last_error_code == 429:
+                self.send_json(429, {"error": "Đã hết lượt gọi miễn phí hoặc vượt hạn mức (HTTP 429). Vui lòng đợi ít phút rồi thử lại."})
+            elif last_error_code in (400, 401, 403):
+                self.send_json(502, {"error": "API key không hợp lệ hoặc thiếu quyền truy cập (HTTP 403/400). Hãy kiểm tra lại GEMINI_API_KEY."})
+            elif last_error_code == 503:
+                self.send_json(503, {"error": "Máy chủ Google Gemini đang tạm thời bận hoặc quá tải (HTTP 503). Bạn vui lòng thử lại sau vài giây."})
+            elif isinstance(last_error, (urllib.error.URLError, TimeoutError)):
+                self.send_json(504, {"error": "Hết thời gian kết nối đến máy chủ Google Gemini. Vui lòng kiểm tra kết nối mạng."})
             else:
                 self.send_json(502, {"error": "Không thể kết nối đến Gemini. Hãy kiểm tra Internet và thử lại."})
             return

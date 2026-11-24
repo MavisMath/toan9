@@ -1022,7 +1022,7 @@ body.dark-theme .site-header {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 60;
+  z-index: 1000;
   font-family: inherit;
 }
 
@@ -1042,6 +1042,7 @@ body.dark-theme .site-header {
   border-radius: 1.5rem;
   box-shadow: var(--shadow-card-hover);
   pointer-events: auto;
+  z-index: 1000;
   transition: opacity 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -1290,7 +1291,7 @@ body.dark-theme .site-header {
   touch-action: none;
   transform: translateY(0);
   transition: filter 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
-  z-index: 60;
+  z-index: 1000;
 }
 
 .math-chat-toggle:hover {
@@ -1410,12 +1411,21 @@ footer {
 main,
 footer,
 .modal-overlay,
-.math-chat,
 #auth-modal,
 #profile-modal,
 #achievement-notification {
   position: relative;
   z-index: 10;
+}
+
+/* Khung chat Mèo Toán và nút mở luôn ở trên cùng (trên đàn bướm z-index: 40) */
+#math-chat,
+.math-chat,
+#math-chat-panel,
+.math-chat-panel,
+#math-chat-toggle,
+.math-chat-toggle {
+  z-index: 1000 !important;
 }
 
 /* Hiệu ứng nảy (Bounce) kiểu Duolingo khi trả lời đúng */
