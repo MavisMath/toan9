@@ -16,8 +16,8 @@ import threading
 import urllib.parse
 import uuid
 
-# Khóa luồng cho các thao tác ghi SQLite
-_sqlite_lock = threading.Lock()
+# Khóa luồng cho các thao tác ghi SQLite (hỗ trợ re-entrant lồng nhau an toàn)
+_sqlite_lock = threading.RLock()
 
 
 class DictRow(dict):
@@ -140,6 +140,7 @@ class SQLiteBackend:
                 CREATE TABLE IF NOT EXISTS Users (
                     user_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     username TEXT UNIQUE NOT NULL,
+                    email TEXT,
                     password_hash TEXT,
                     display_name TEXT NOT NULL DEFAULT 'Chiến Binh Toán 9',
                     avatar TEXT NOT NULL DEFAULT '🐱',
@@ -252,6 +253,80 @@ class SQLiteBackend:
                 );
             """)
 
+            # Migration an toàn: kiểm tra và thêm cột email vào Users nếu DB cũ chưa có
+            cursor.execute("PRAGMA table_info(Users)")
+            user_cols = [col[1].lower() for col in cursor.fetchall()]
+            if "email" not in user_cols:
+                try:
+                    cursor.execute("ALTER TABLE Users ADD COLUMN email TEXT")
+                except Exception as ex:
+                    print(f"[!] Migration email warning: {ex}")
+
+            cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON Users(LOWER(email)) WHERE email IS NOT NULL")
+            cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_lower ON Users(LOWER(username))")
+
+            # 9. Bảng assignments (Giao / Nhận bài tập linh hoạt như email)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS assignments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    sender_user_id INTEGER NOT NULL,
+                    title TEXT NOT NULL,
+                    note TEXT,
+                    question_source TEXT NOT NULL DEFAULT 'mixed',
+                    questions_json TEXT NOT NULL DEFAULT '[]',
+                    due_date TEXT,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    FOREIGN KEY (sender_user_id) REFERENCES Users(user_id) ON DELETE CASCADE
+                );
+            """)
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_assignments_sender ON assignments(sender_user_id)")
+
+            # 10. Bảng assignment_recipients (Danh sách người nhận & kết quả làm bài)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS assignment_recipients (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    assignment_id INTEGER NOT NULL,
+                    recipient_user_id INTEGER NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    answers_json TEXT NOT NULL DEFAULT '[]',
+                    score REAL DEFAULT 0,
+                    total_questions INTEGER DEFAULT 0,
+                    submitted_at TEXT,
+                    FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
+                    FOREIGN KEY (recipient_user_id) REFERENCES Users(user_id) ON DELETE CASCADE
+                );
+            """)
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_recipients_user ON assignment_recipients(recipient_user_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_recipients_assignment ON assignment_recipients(assignment_id)")
+
+            # 11. Bảng wrong_questions (Sổ tay lưu các câu làm sai)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS wrong_questions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    source TEXT NOT NULL DEFAULT 'basic',
+                    question_key TEXT NOT NULL,
+                    question_snapshot_json TEXT NOT NULL DEFAULT '{}',
+                    wrong_count INTEGER NOT NULL DEFAULT 1,
+                    last_wrong_at TEXT DEFAULT (datetime('now')),
+                    mastered INTEGER NOT NULL DEFAULT 0,
+                    FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE
+                );
+            """)
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_wrong_q_user ON wrong_questions(user_id)")
+            cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_wrong_q_user_key ON wrong_questions(user_id, question_key)")
+
+            # 12. Bảng study_reminders (Cấu hình giờ nhắc học mỗi ngày)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS study_reminders (
+                    user_id INTEGER PRIMARY KEY,
+                    daily_time TEXT NOT NULL DEFAULT '19:30',
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    last_notified_date TEXT,
+                    FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE
+                );
+            """)
+
             # Tạo tài khoản mẫu ban đầu nếu chưa có
             cursor.execute("SELECT COUNT(*) FROM Users")
             user_count = cursor.fetchone()[0]
@@ -296,7 +371,7 @@ class SQLiteBackend:
             return None
         return DictRow(dict(row))
 
-    def register_user(self, username, password, display_name=None, avatar=None):
+    def register_user(self, username, password, display_name=None, avatar=None, email=None):
         if not username or not isinstance(username, str):
             raise ValueError("Tên đăng nhập không được để trống.")
         username = username.strip().lower()
@@ -326,13 +401,23 @@ class SQLiteBackend:
             if cursor.fetchone():
                 raise ValueError("Tên đăng nhập đã tồn tại. Vui lòng chọn tên đăng nhập khác.")
 
+            # Xử lý trường email tùy chọn và kiểm tra trùng lặp
+            clean_email = None
+            if email and isinstance(email, str) and email.strip():
+                clean_email = email.strip().lower()
+                if not re.match(r"^[^@\s]+@[^@\s]+\.[a-zA-Z0-9]{2,}$", clean_email):
+                    raise ValueError("Định dạng email không hợp lệ.")
+                cursor.execute("SELECT user_id FROM Users WHERE LOWER(email) = ?", (clean_email,))
+                if cursor.fetchone():
+                    raise ValueError("Email này đã được sử dụng bởi tài khoản khác.")
+
             cursor.execute("""
                 INSERT INTO Users
-                    (username, password_hash, display_name, avatar, user_role, level, exp,
+                    (username, password_hash, display_name, avatar, user_role, email, level, exp,
                      exp_to_next_level, diamonds, streak, max_streak, highest_floor,
                      speed_high_score, last_active_date)
-                VALUES (?, ?, ?, ?, 'student', 1, 0, 100, 50, 0, 0, 1, 0, ?)
-            """, (username, pwd_hash, display_name, avatar, today))
+                VALUES (?, ?, ?, ?, 'student', ?, 1, 0, 100, 50, 0, 0, 1, 0, ?)
+            """, (username, pwd_hash, display_name, avatar, clean_email, today))
             user_id = cursor.lastrowid
 
             cursor.execute("SELECT * FROM Users WHERE user_id = ?", (user_id,))
@@ -362,6 +447,7 @@ class SQLiteBackend:
                     "displayName": display_name,
                     "avatar": avatar,
                     "role": user_row.user_role,
+                    "email": clean_email,
                 },
                 "clientId": client_id,
                 "profile": profile,
@@ -371,11 +457,11 @@ class SQLiteBackend:
 
     def login_user(self, username, password):
         if not username or not isinstance(username, str):
-            raise ValueError("Vui lòng nhập tên đăng nhập.")
+            raise ValueError("Vui lòng nhập tên đăng nhập hoặc email.")
         if not password or not isinstance(password, str):
             raise ValueError("Vui lòng nhập mật khẩu.")
 
-        username = username.strip().lower()
+        identifier = username.strip().lower()
 
         with _sqlite_lock, self._get_connection() as conn:
             cursor = conn.cursor()
@@ -383,8 +469,8 @@ class SQLiteBackend:
                 SELECT u.*, s.client_id, s.profile_json, s.custom_questions_json, s.leaderboard_json
                 FROM Users u
                 LEFT JOIN Web_Client_State s ON s.user_id = u.user_id
-                WHERE LOWER(u.username) = ?
-            """, (username,))
+                WHERE LOWER(u.username) = ? OR (u.email IS NOT NULL AND LOWER(u.email) = ?)
+            """, (identifier, identifier))
             raw_row = cursor.fetchone()
             if not raw_row:
                 raise ValueError("Tên đăng nhập hoặc mật khẩu không chính xác.")
@@ -439,6 +525,7 @@ class SQLiteBackend:
                     "displayName": row.display_name,
                     "avatar": row.avatar,
                     "role": row.user_role,
+                    "email": row.email,
                 },
                 "clientId": str(client_id),
                 "profile": profile,
@@ -493,6 +580,7 @@ class SQLiteBackend:
                     "displayName": row.display_name,
                     "avatar": row.avatar,
                     "role": row.user_role,
+                    "email": row.email,
                 },
                 "clientId": str(client_id),
                 "profile": profile,
@@ -508,6 +596,605 @@ class SQLiteBackend:
             cursor.execute("DELETE FROM User_Sessions WHERE session_token = ?", (session_token,))
             conn.commit()
         return True
+
+    def update_user_email(self, user_id, email):
+        clean_email = None
+        if email and isinstance(email, str) and email.strip():
+            clean_email = email.strip().lower()
+            if not re.match(r"^[^@\s]+@[^@\s]+\.[a-zA-Z0-9]{2,}$", clean_email):
+                raise ValueError("Định dạng email không hợp lệ.")
+
+        with _sqlite_lock, self._get_connection() as conn:
+            cursor = conn.cursor()
+            if clean_email:
+                cursor.execute("SELECT user_id FROM Users WHERE LOWER(email) = ? AND user_id != ?", (clean_email, user_id))
+                if cursor.fetchone():
+                    raise ValueError("Email này đã được sử dụng bởi tài khoản khác.")
+            cursor.execute("UPDATE Users SET email = ? WHERE user_id = ?", (clean_email, user_id))
+            conn.commit()
+            return clean_email
+
+    def lookup_user(self, query):
+        if not query or not isinstance(query, str):
+            return []
+        q = query.strip().lower()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT user_id, username, display_name, avatar
+                FROM Users
+                WHERE LOWER(username) = ? OR (email IS NOT NULL AND LOWER(email) = ?)
+            """, (q, q))
+            rows = cursor.fetchall()
+            if not rows and len(q) >= 2:
+                cursor.execute("""
+                    SELECT user_id, username, display_name, avatar
+                    FROM Users
+                    WHERE LOWER(username) LIKE ?
+                    LIMIT 5
+                """, (f"{q}%",))
+                rows = cursor.fetchall()
+            
+            results = []
+            for r in rows:
+                results.append({
+                    "userId": r["user_id"],
+                    "username": r["username"],
+                    "displayName": r["display_name"],
+                    "avatar": r["avatar"]
+                })
+            return results
+
+    def create_assignment(self, sender_user_id, title, note, question_source, questions, due_date, recipients):
+        clean_title = (title or "").strip()[:200]
+        if not clean_title:
+            raise ValueError("Tiêu đề bài tập không được để trống.")
+
+        if not questions or not isinstance(questions, list):
+            raise ValueError("Danh sách câu hỏi bài tập không hợp lệ hoặc rỗng.")
+
+        if not recipients or not isinstance(recipients, list):
+            raise ValueError("Vui lòng cung cấp danh sách người nhận (recipients).")
+
+        clean_source = (question_source or "mixed").strip().lower()
+        if clean_source not in ("basic", "advanced", "mixed", "custom"):
+            clean_source = "mixed"
+
+        clean_due_date = str(due_date).strip() if due_date else None
+
+        with _sqlite_lock, self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            found_users = []
+            not_found = []
+            seen_uids = set()
+
+            for rec in recipients:
+                rec_str = str(rec).strip().lower()
+                if not rec_str:
+                    continue
+                cursor.execute("""
+                    SELECT user_id, username, display_name, avatar
+                    FROM Users
+                    WHERE LOWER(username) = ? OR (email IS NOT NULL AND LOWER(email) = ?)
+                """, (rec_str, rec_str))
+                urow = cursor.fetchone()
+                if urow:
+                    uid = urow["user_id"]
+                    if uid not in seen_uids:
+                        seen_uids.add(uid)
+                        found_users.append({
+                            "userId": uid,
+                            "username": urow["username"],
+                            "displayName": urow["display_name"],
+                            "avatar": urow["avatar"]
+                        })
+                else:
+                    not_found.append(rec)
+
+            if not_found:
+                return {
+                    "created": False,
+                    "error": f"Không tìm thấy người nhận: {', '.join(not_found)}",
+                    "notFound": not_found
+                }
+
+            if not found_users:
+                return {
+                    "created": False,
+                    "error": "Không có người nhận hợp lệ.",
+                    "notFound": recipients
+                }
+
+            questions_json = json.dumps(questions, ensure_ascii=False)
+            cursor.execute("""
+                INSERT INTO assignments
+                    (sender_user_id, title, note, question_source, questions_json, due_date)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (sender_user_id, clean_title, note or "", clean_source, questions_json, clean_due_date))
+            assignment_id = cursor.lastrowid
+
+            total_q = len(questions)
+            for u in found_users:
+                cursor.execute("""
+                    INSERT INTO assignment_recipients
+                        (assignment_id, recipient_user_id, status, answers_json, score, total_questions)
+                    VALUES (?, ?, 'pending', '[]', 0, ?)
+                """, (assignment_id, u["userId"], total_q))
+
+            conn.commit()
+
+            return {
+                "created": True,
+                "assignmentId": assignment_id,
+                "title": clean_title,
+                "recipientCount": len(found_users),
+                "recipients": found_users,
+                "totalQuestions": total_q
+            }
+
+    def get_inbox_assignments(self, recipient_user_id):
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT 
+                    r.id as recipient_entry_id,
+                    r.assignment_id,
+                    r.status,
+                    r.score,
+                    r.total_questions,
+                    r.submitted_at,
+                    r.answers_json,
+                    a.title,
+                    a.note,
+                    a.question_source,
+                    a.questions_json,
+                    a.due_date,
+                    a.created_at,
+                    u.user_id as sender_id,
+                    u.username as sender_username,
+                    u.display_name as sender_name,
+                    u.avatar as sender_avatar
+                FROM assignment_recipients r
+                JOIN assignments a ON a.id = r.assignment_id
+                JOIN Users u ON u.user_id = a.sender_user_id
+                WHERE r.recipient_user_id = ?
+                ORDER BY a.created_at DESC
+            """, (recipient_user_id,))
+            rows = cursor.fetchall()
+            now_iso = datetime.datetime.utcnow().isoformat()
+            result = []
+            for row in rows:
+                q_list = []
+                try:
+                    q_list = json.loads(row["questions_json"] or "[]")
+                except Exception:
+                    pass
+                answers = []
+                try:
+                    answers = json.loads(row["answers_json"] or "[]")
+                except Exception:
+                    pass
+
+                status = row["status"]
+                due_date = row["due_date"]
+                is_overdue = False
+                if due_date and status in ("pending", "in_progress") and now_iso > due_date:
+                    is_overdue = True
+
+                result.append({
+                    "id": row["assignment_id"],
+                    "recipientEntryId": row["recipient_entry_id"],
+                    "title": row["title"],
+                    "note": row["note"],
+                    "questionSource": row["question_source"],
+                    "totalQuestions": row["total_questions"] or len(q_list),
+                    "dueDate": due_date,
+                    "createdAt": row["created_at"],
+                    "status": status,
+                    "isOverdue": is_overdue,
+                    "score": row["score"],
+                    "submittedAt": row["submitted_at"],
+                    "sender": {
+                        "userId": row["sender_id"],
+                        "username": row["sender_username"],
+                        "displayName": row["sender_name"],
+                        "avatar": row["sender_avatar"]
+                    },
+                    "questions": q_list,
+                    "answers": answers
+                })
+            return result
+
+    def get_sent_assignments(self, sender_user_id):
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, title, note, question_source, questions_json, due_date, created_at
+                FROM assignments
+                WHERE sender_user_id = ?
+                ORDER BY created_at DESC
+            """, (sender_user_id,))
+            assignments_rows = cursor.fetchall()
+
+            result = []
+            for a_row in assignments_rows:
+                a_id = a_row["id"]
+                questions = []
+                try:
+                    questions = json.loads(a_row["questions_json"] or "[]")
+                except Exception:
+                    pass
+
+                cursor.execute("""
+                    SELECT 
+                        r.id as recipient_entry_id,
+                        r.recipient_user_id,
+                        r.status,
+                        r.score,
+                        r.total_questions,
+                        r.submitted_at,
+                        r.answers_json,
+                        u.username,
+                        u.display_name,
+                        u.avatar,
+                        u.email
+                    FROM assignment_recipients r
+                    JOIN Users u ON u.user_id = r.recipient_user_id
+                    WHERE r.assignment_id = ?
+                """, (a_id,))
+                rec_rows = cursor.fetchall()
+
+                recipients_data = []
+                submitted_count = 0
+                late_count = 0
+                total_score = 0.0
+
+                # Thống kê câu hỏi làm sai nhiều nhất
+                question_miss_counts = {}
+                for idx, q in enumerate(questions):
+                    q_key = str(q.get("id", f"q_{idx}"))
+                    question_miss_counts[q_key] = {
+                        "questionId": q_key,
+                        "content": q.get("content", f"Câu {idx + 1}"),
+                        "wrongCount": 0
+                    }
+
+                for r in rec_rows:
+                    st = r["status"]
+                    sc = float(r["score"] or 0)
+                    if st in ("submitted", "late"):
+                        submitted_count += 1
+                        total_score += sc
+                        if st == "late":
+                            late_count += 1
+
+                        user_answers = []
+                        try:
+                            user_answers = json.loads(r["answers_json"] or "[]")
+                        except Exception:
+                            pass
+
+                        # Kiểm tra câu sai của người này
+                        for idx, q in enumerate(questions):
+                            q_key = str(q.get("id", f"q_{idx}"))
+                            ans = None
+                            if isinstance(user_answers, list) and idx < len(user_answers):
+                                item = user_answers[idx]
+                                ans = item.get("answer") if isinstance(item, dict) and "answer" in item else item
+                            elif isinstance(user_answers, dict):
+                                ans = user_answers.get(q_key, user_answers.get(str(idx)))
+
+                            if not self._check_answer_correct(ans, q):
+                                if q_key in question_miss_counts:
+                                    question_miss_counts[q_key]["wrongCount"] += 1
+
+                    recipients_data.append({
+                        "recipientEntryId": r["recipient_entry_id"],
+                        "userId": r["recipient_user_id"],
+                        "username": r["username"],
+                        "displayName": r["display_name"],
+                        "avatar": r["avatar"],
+                        "status": st,
+                        "score": sc,
+                        "totalQuestions": r["total_questions"],
+                        "submittedAt": r["submitted_at"]
+                    })
+
+                total_rec = len(recipients_data)
+                avg_score = round(total_score / submitted_count, 1) if submitted_count > 0 else 0
+
+                missed_sorted = sorted(
+                    [item for item in question_miss_counts.values() if item["wrongCount"] > 0],
+                    key=lambda x: x["wrongCount"],
+                    reverse=True
+                )
+
+                result.append({
+                    "id": a_id,
+                    "title": a_row["title"],
+                    "note": a_row["note"],
+                    "questionSource": a_row["question_source"],
+                    "totalQuestions": len(questions),
+                    "dueDate": a_row["due_date"],
+                    "createdAt": a_row["created_at"],
+                    "totalRecipients": total_rec,
+                    "submittedCount": submitted_count,
+                    "pendingCount": total_rec - submitted_count,
+                    "lateCount": late_count,
+                    "averageScore": avg_score,
+                    "recipients": recipients_data,
+                    "mostMissedQuestions": missed_sorted[:5]
+                })
+
+            return result
+
+    def delete_assignment(self, assignment_id, sender_user_id):
+        with _sqlite_lock, self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT sender_user_id FROM assignments WHERE id = ?", (assignment_id,))
+            row = cursor.fetchone()
+            if not row:
+                raise ValueError("Bài tập không tồn tại.")
+            if row["sender_user_id"] != sender_user_id:
+                raise ValueError("Chỉ người tạo bài tập mới có quyền xóa bài tập này.")
+
+            cursor.execute("DELETE FROM assignment_recipients WHERE assignment_id = ?", (assignment_id,))
+            cursor.execute("DELETE FROM assignments WHERE id = ?", (assignment_id,))
+            conn.commit()
+            return {"deleted": True, "assignmentId": assignment_id}
+
+    def _check_answer_correct(self, submitted_ans, q_data):
+        if submitted_ans is None:
+            return False
+        correct = q_data.get("correctAnswer")
+        if correct is None:
+            correct = q_data.get("correct_answer")
+        if correct is None:
+            return False
+
+        if isinstance(correct, int) or (isinstance(correct, str) and correct.isdigit()):
+            c_int = int(correct)
+            if isinstance(submitted_ans, int) or (isinstance(submitted_ans, str) and str(submitted_ans).isdigit()):
+                if int(submitted_ans) == c_int:
+                    return True
+            letter_map = {"a": 0, "b": 1, "c": 2, "d": 3}
+            if isinstance(submitted_ans, str) and submitted_ans.strip().lower() in letter_map:
+                if letter_map[submitted_ans.strip().lower()] == c_int:
+                    return True
+
+        if isinstance(correct, str) and correct.strip().upper() in ("A", "B", "C", "D"):
+            c_letter = correct.strip().upper()
+            if isinstance(submitted_ans, str) and submitted_ans.strip().upper() == c_letter:
+                return True
+            inv_map = {0: "A", 1: "B", 2: "C", 3: "D"}
+            if (isinstance(submitted_ans, int) or (isinstance(submitted_ans, str) and str(submitted_ans).isdigit())) and int(submitted_ans) in inv_map:
+                if inv_map[int(submitted_ans)] == c_letter:
+                    return True
+
+        s_sub = str(submitted_ans).strip().lower().replace(" ", "").replace(",", ".")
+        s_cor = str(correct).strip().lower().replace(" ", "").replace(",", ".")
+        if s_sub == s_cor:
+            return True
+
+        acceptables = q_data.get("acceptableAnswers") or q_data.get("acceptable_answers") or []
+        for acc in acceptables:
+            if str(acc).strip().lower().replace(" ", "").replace(",", ".") == s_sub:
+                return True
+
+        try:
+            f_sub = float(s_sub)
+            f_cor = float(s_cor)
+            if abs(f_sub - f_cor) < 1e-5:
+                return True
+        except (ValueError, TypeError):
+            pass
+
+        return False
+
+    def submit_assignment(self, assignment_id, recipient_user_id, answers):
+        with _sqlite_lock, self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT r.id, r.status, a.questions_json, a.due_date, a.question_source
+                FROM assignment_recipients r
+                JOIN assignments a ON a.id = r.assignment_id
+                WHERE r.assignment_id = ? AND r.recipient_user_id = ?
+            """, (assignment_id, recipient_user_id))
+            row = cursor.fetchone()
+            if not row:
+                raise ValueError("Bạn không nằm trong danh sách làm bài tập này.")
+
+            questions = []
+            try:
+                questions = json.loads(row["questions_json"] or "[]")
+            except Exception:
+                questions = []
+
+            total_q = len(questions)
+            correct_count = 0
+            wrong_recorded = 0
+
+            # Chấm điểm tự động và lưu câu sai
+            for idx, q in enumerate(questions):
+                q_key = str(q.get("id", f"q_{idx}"))
+                user_ans = None
+                if isinstance(answers, list) and idx < len(answers):
+                    item = answers[idx]
+                    user_ans = item.get("answer") if isinstance(item, dict) and "answer" in item else item
+                elif isinstance(answers, dict):
+                    user_ans = answers.get(q_key, answers.get(str(idx)))
+
+                if self._check_answer_correct(user_ans, q):
+                    correct_count += 1
+                else:
+                    self.record_wrong_question(recipient_user_id, row["question_source"], q_key, q, cursor=cursor)
+                    wrong_recorded += 1
+
+            score = round((correct_count / total_q) * 10, 1) if total_q > 0 else 10.0
+
+            now_dt = datetime.datetime.utcnow()
+            now_iso = now_dt.isoformat()
+            due_date = row["due_date"]
+            status = "submitted"
+            if due_date:
+                try:
+                    # So sánh hạn nộp
+                    if now_iso > due_date:
+                        status = "late"
+                except Exception:
+                    pass
+
+            answers_json = json.dumps(answers, ensure_ascii=False)
+            cursor.execute("""
+                UPDATE assignment_recipients
+                SET status = ?, answers_json = ?, score = ?, total_questions = ?, submitted_at = ?
+                WHERE id = ?
+            """, (status, answers_json, score, total_q, now_iso, row["id"]))
+
+            conn.commit()
+
+            return {
+                "submitted": True,
+                "assignmentId": assignment_id,
+                "score": score,
+                "correctCount": correct_count,
+                "totalQuestions": total_q,
+                "status": status,
+                "submittedAt": now_iso,
+                "wrongQuestionsSaved": wrong_recorded
+            }
+
+    def record_wrong_question(self, user_id, source, question_key, question_dict, cursor=None):
+        clean_key = str(question_key).strip()
+        snap_json = json.dumps(question_dict, ensure_ascii=False) if isinstance(question_dict, dict) else str(question_dict)
+        clean_src = (source or "basic").strip().lower()
+
+        if cursor is not None:
+            cursor.execute("SELECT id, wrong_count FROM wrong_questions WHERE user_id = ? AND question_key = ?", (user_id, clean_key))
+            existing = cursor.fetchone()
+            if existing:
+                cursor.execute("""
+                    UPDATE wrong_questions
+                    SET wrong_count = wrong_count + 1,
+                        last_wrong_at = datetime('now'),
+                        mastered = 0,
+                        question_snapshot_json = ?
+                    WHERE id = ?
+                """, (snap_json, existing["id"]))
+            else:
+                cursor.execute("""
+                    INSERT INTO wrong_questions
+                        (user_id, source, question_key, question_snapshot_json, wrong_count, last_wrong_at, mastered)
+                    VALUES (?, ?, ?, ?, 1, datetime('now'), 0)
+                """, (user_id, clean_src, clean_key, snap_json))
+            return
+
+        with _sqlite_lock, self._get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT id, wrong_count FROM wrong_questions WHERE user_id = ? AND question_key = ?", (user_id, clean_key))
+            existing = cur.fetchone()
+            if existing:
+                cur.execute("""
+                    UPDATE wrong_questions
+                    SET wrong_count = wrong_count + 1,
+                        last_wrong_at = datetime('now'),
+                        mastered = 0,
+                        question_snapshot_json = ?
+                    WHERE id = ?
+                """, (snap_json, existing["id"]))
+            else:
+                cur.execute("""
+                    INSERT INTO wrong_questions
+                        (user_id, source, question_key, question_snapshot_json, wrong_count, last_wrong_at, mastered)
+                    VALUES (?, ?, ?, ?, 1, datetime('now'), 0)
+                """, (user_id, clean_src, clean_key, snap_json))
+            conn.commit()
+
+    def get_wrong_questions(self, user_id, mastered=None):
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            if mastered is not None:
+                m_val = 1 if mastered in (True, 1, "1", "true") else 0
+                cursor.execute("""
+                    SELECT id, source, question_key, question_snapshot_json, wrong_count, last_wrong_at, mastered
+                    FROM wrong_questions
+                    WHERE user_id = ? AND mastered = ?
+                    ORDER BY last_wrong_at DESC
+                """, (user_id, m_val))
+            else:
+                cursor.execute("""
+                    SELECT id, source, question_key, question_snapshot_json, wrong_count, last_wrong_at, mastered
+                    FROM wrong_questions
+                    WHERE user_id = ?
+                    ORDER BY last_wrong_at DESC
+                """, (user_id,))
+            rows = cursor.fetchall()
+            results = []
+            for r in rows:
+                q_snap = {}
+                try:
+                    q_snap = json.loads(r["question_snapshot_json"] or "{}")
+                except Exception:
+                    pass
+                results.append({
+                    "id": r["id"],
+                    "source": r["source"],
+                    "questionKey": r["question_key"],
+                    "wrongCount": r["wrong_count"],
+                    "lastWrongAt": r["last_wrong_at"],
+                    "mastered": bool(r["mastered"]),
+                    "question": q_snap
+                })
+            return results
+
+    def master_wrong_question(self, user_id, wrong_question_id):
+        with _sqlite_lock, self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE wrong_questions SET mastered = 1 WHERE id = ? AND user_id = ?", (wrong_question_id, user_id))
+            if cursor.rowcount == 0:
+                raise ValueError("Không tìm thấy câu hỏi sai hoặc bạn không có quyền cập nhật.")
+            conn.commit()
+            return {"mastered": True, "id": wrong_question_id}
+
+    def get_study_reminder(self, user_id):
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT daily_time, enabled, last_notified_date FROM study_reminders WHERE user_id = ?", (user_id,))
+            row = cursor.fetchone()
+            if not row:
+                return {
+                    "dailyTime": "19:30",
+                    "enabled": True,
+                    "lastNotifiedDate": None
+                }
+            return {
+                "dailyTime": row["daily_time"],
+                "enabled": bool(row["enabled"]),
+                "lastNotifiedDate": row["last_notified_date"]
+            }
+
+    def save_study_reminder(self, user_id, daily_time, enabled=True):
+        clean_time = (daily_time or "19:30").strip()
+        if not re.match(r"^\d{1,2}:\d{2}$", clean_time):
+            raise ValueError("Định dạng giờ nhắc không hợp lệ (ví dụ: 19:30).")
+        enabled_int = 1 if enabled in (True, 1, "1", "true") else 0
+
+        with _sqlite_lock, self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO study_reminders (user_id, daily_time, enabled)
+                VALUES (?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    daily_time = excluded.daily_time,
+                    enabled = excluded.enabled
+            """, (user_id, clean_time, enabled_int))
+            conn.commit()
+            return {
+                "saved": True,
+                "dailyTime": clean_time,
+                "enabled": bool(enabled_int)
+            }
 
     def save_user_state(self, user_id, payload):
         profile = payload.get("profile")
@@ -698,7 +1385,6 @@ class SQLiteBackend:
             "exams": "Exams",
             "tower_floors": "Tower_Floors",
             "achievements": "Achievements",
-            "users": "Users",
             "web_client_state": "Web_Client_State"
         }
         key = (table_name or "").lower().strip()
@@ -946,8 +1632,8 @@ def _get_active_backend():
     return _sqlite_instance
 
 
-def register_user(username, password, display_name=None, avatar=None):
-    return _get_active_backend().register_user(username, password, display_name, avatar)
+def register_user(username, password, display_name=None, avatar=None, email=None):
+    return _get_active_backend().register_user(username, password, display_name, avatar, email)
 
 
 def login_user(username, password):
@@ -984,6 +1670,53 @@ def get_table_rows(table_name: str, limit: int = 50):
 
 def sync_all_data_to_database():
     return _get_active_backend().sync_all_data()
+
+def update_user_email(user_id, email):
+    return _get_active_backend().update_user_email(user_id, email)
+
+
+def lookup_user(query):
+    return _get_active_backend().lookup_user(query)
+
+
+def create_assignment(sender_user_id, title, note, question_source, questions, due_date, recipients):
+    return _get_active_backend().create_assignment(sender_user_id, title, note, question_source, questions, due_date, recipients)
+
+
+def get_inbox_assignments(recipient_user_id):
+    return _get_active_backend().get_inbox_assignments(recipient_user_id)
+
+
+def get_sent_assignments(sender_user_id):
+    return _get_active_backend().get_sent_assignments(sender_user_id)
+
+
+def delete_assignment(assignment_id, sender_user_id):
+    return _get_active_backend().delete_assignment(assignment_id, sender_user_id)
+
+
+def submit_assignment(assignment_id, recipient_user_id, answers):
+    return _get_active_backend().submit_assignment(assignment_id, recipient_user_id, answers)
+
+
+def record_wrong_question(user_id, source, question_key, question_dict):
+    return _get_active_backend().record_wrong_question(user_id, source, question_key, question_dict)
+
+
+def get_wrong_questions(user_id, mastered=None):
+    return _get_active_backend().get_wrong_questions(user_id, mastered)
+
+
+def master_wrong_question(user_id, wrong_question_id):
+    return _get_active_backend().master_wrong_question(user_id, wrong_question_id)
+
+
+def get_study_reminder(user_id):
+    return _get_active_backend().get_study_reminder(user_id)
+
+
+def save_study_reminder(user_id, daily_time, enabled=True):
+    return _get_active_backend().save_study_reminder(user_id, daily_time, enabled)
 
 
 def get_documents_metadata():

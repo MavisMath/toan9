@@ -1,18 +1,36 @@
 <!DOCTYPE html>
-<html lang="vi" class="dark">
+<html lang="vi" data-theme="light">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Toán 9 with Mavis xinh gái</title>
 
+  <!-- Google Fonts: Nunito chuẩn Tiếng Việt -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Khởi tạo Theme & Ngôn ngữ tức thì chống giật giao diện -->
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem('math9_theme') || 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      const savedLang = localStorage.getItem('math9_language') || 'vi';
+      document.documentElement.setAttribute('lang', savedLang);
+    })();
+  </script>
+
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      darkMode: 'class',
+      darkMode: ['class', '[data-theme="dark"]'],
       theme: {
         extend: {
+          fontFamily: {
+            sans: ['Nunito', 'sans-serif'],
+          },
           colors: {
             brand: {
               50: '#eff6ff',
@@ -37,111 +55,131 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 
   <!-- Custom Game CSS -->
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=20261124_8">
 </head>
 
-<body class="min-h-screen flex flex-col text-slate-100 selection:bg-pink-500 selection:text-white">
+<body class="min-h-screen flex flex-col selection:bg-pink-500 selection:text-white">
 
   <!-- ============================================================== -->
-  <!-- HEADER & TOPBAR THÔNG TIN HỌC SINH -->
+  <!-- LỚP 1: BẦU TRỜI & DÒNG CHẢY TOÁN HỌC CANVAS 2D -->
   <!-- ============================================================== -->
-  <header class="site-header sticky top-0 z-40 glass-panel border-b border-slate-800/80 shadow-lg no-print">
-    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+  <canvas id="sky-canvas" class="sky-canvas" aria-hidden="true"></canvas>
+
+  <!-- ============================================================== -->
+  <!-- HEADER & TOPBAR THÔNG TIN HỌC SINH (2 HÀNG PHẲNG DÍNH CỐ ĐỊNH) -->
+  <!-- ============================================================== -->
+  <header class="site-header sticky top-0 z-50 w-full no-print">
+    <!-- HÀNG 1: LOGO, TÀI KHOẢN & TIỆN ÍCH (GỌN GÀNG, 1 HÀNG KHÔNG XUỐNG DÒNG) -->
+    <div class="max-w-7xl mx-auto px-3 sm:px-4 py-2 flex items-center justify-between gap-2 sm:gap-3 flex-nowrap overflow-x-auto scrollbar-none">
 
       <!-- Logo & Tên Trường / Web -->
-      <div class="flex items-center gap-3 cursor-pointer" onclick="app.showTab('home')">
-        <div class="brand-mark w-11 h-11 rounded-2xl p-0.5">
-          <div class="brand-mark-inner w-full h-full rounded-2xl flex items-center justify-center text-xl">
+      <div class="flex items-center gap-2 sm:gap-2.5 cursor-pointer select-none shrink-0" onclick="app.showTab('home')">
+        <div class="brand-mark w-9 h-9 sm:w-10 sm:h-10 rounded-2xl p-0.5 flex items-center justify-center shrink-0">
+          <div id="brand-logo-icon" class="brand-mark-inner w-full h-full rounded-2xl flex items-center justify-center text-lg sm:text-xl">
             🐱
           </div>
         </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <span class="brand-title font-black text-lg md:text-xl tracking-tight">
+        <div class="shrink-0">
+          <div class="flex items-center gap-1.5 sm:gap-2 whitespace-nowrap">
+            <span class="brand-title font-black text-sm sm:text-base md:text-lg tracking-tight whitespace-nowrap" data-i18n="brand.title">
               Toán 9 with Mavis xinh gái
             </span>
-            <span class="brand-badge text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border">
+            <span class="brand-badge text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full whitespace-nowrap shrink-0" data-i18n="brand.badge">
               GDPT 2018
             </span>
           </div>
-          <div class="text-[11px] text-slate-400 font-medium">Hệ thống ôn luyện vừa học vừa chơi</div>
+          <div class="text-[10px] sm:text-[11px] font-medium whitespace-nowrap hidden xs:block" style="color: var(--text-muted);" data-i18n="brand.subtitle">Hệ thống ôn luyện vừa học vừa chơi</div>
         </div>
       </div>
 
-      <!-- Hồ sơ học sinh & Thanh tiến trình EXP -->
-      <div class="flex items-center gap-3 md:gap-5">
-        <!-- Avatar & Tên -->
+      <!-- Hồ sơ học sinh & Bộ Tiện Ích bên phải -->
+      <div class="flex items-center gap-1.5 sm:gap-2.5 shrink-0 flex-nowrap">
+        <!-- Avatar & Tên (Thẻ tài khoản Badge Pill nền kem ấm) -->
         <div onclick="app.showProfileModal()"
-          class="profile-chip flex items-center gap-2.5 p-1.5 md:px-3 md:py-1.5 rounded-2xl border cursor-pointer transition">
-          <span id="player-avatar" class="text-2xl">🐱</span>
-          <div class="hidden sm:block text-left">
-            <div class="flex items-center gap-1.5">
-              <span id="player-name" class="font-bold text-xs text-slate-200">Chiến Binh Toán 9</span>
-              <span id="player-level" class="level-chip text-[10px] font-black px-1.5 py-0.2 rounded border">Lv.1</span>
+          class="profile-chip flex items-center gap-2 px-2.5 py-1.5 rounded-2xl cursor-pointer transition select-none shrink-0 whitespace-nowrap">
+          <span id="player-avatar" class="text-lg sm:text-xl shrink-0 flex items-center justify-center">🌸</span>
+          <div class="hidden sm:block text-left whitespace-nowrap">
+            <div class="flex items-center gap-1.5 whitespace-nowrap">
+              <span id="player-name" class="font-extrabold text-xs whitespace-nowrap" style="color: var(--text-main);">Khách</span>
+              <span id="player-level" class="level-chip text-[10px] font-black px-1.5 py-0.2 rounded whitespace-nowrap">Lv.1</span>
             </div>
             <!-- Thanh EXP nhỏ -->
-            <div class="exp-track w-24 rounded-full h-1.5 mt-1 overflow-hidden">
-              <div id="player-exp-bar" class="exp-fill h-full rounded-full transition-all" style="width: 20%"></div>
+            <div class="exp-track w-16 md:w-20 rounded-full h-1.5 mt-1 overflow-hidden">
+              <div id="player-exp-bar" class="exp-fill shimmer-bar h-full rounded-full transition-all" style="width: 20%"></div>
             </div>
           </div>
         </div>
 
-        <!-- Chuỗi ngày & Kim Cương -->
-        <div class="flex items-center gap-2 text-xs font-bold">
-          <div class="stat-chip stat-streak flex items-center gap-1 px-2.5 py-1.5 rounded-xl border shadow-sm"
+        <!-- Chuỗi ngày & Kim Cương (Chỉ số thưởng: Sakura & Heart) -->
+        <div class="flex items-center gap-1 text-xs font-bold shrink-0 whitespace-nowrap">
+          <div class="stat-chip stat-streak flex items-center gap-1 px-2 py-1.5 rounded-xl shadow-sm whitespace-nowrap"
             title="Chuỗi ngày chăm chỉ">
-            <span>🌸</span>
+            <span class="streak-flame flex items-center justify-center" id="streak-flame-icon">🌸</span>
             <span id="player-streak">0</span>
           </div>
-          <div class="stat-chip stat-heart flex items-center gap-1 px-2.5 py-1.5 rounded-xl border shadow-sm"
-            title="Kim cương tích lũy">
-            <span>💗</span>
+          <div class="stat-chip stat-heart flex items-center gap-1 px-2 py-1.5 rounded-xl shadow-sm whitespace-nowrap"
+            title="Điểm thưởng yêu thích">
+            <span id="reward-heart-icon" class="flex items-center justify-center">💖</span>
             <span id="player-diamonds">50</span>
           </div>
         </div>
 
-        <!-- Nút Đăng Nhập / Đăng Xuất -->
-        <div id="auth-topbar-actions" class="flex items-center gap-1.5"></div>
+        <!-- Bộ Nút Tiện Ích: Theme Sáng/Tối, Ngôn Ngữ VI/EN, Âm Thanh & Auth -->
+        <div class="flex items-center gap-1 shrink-0 whitespace-nowrap">
+          <!-- Chuyển chế độ Sáng / Tối (Sun / Moon) -->
+          <button id="theme-toggle-btn" onclick="app.toggleTheme()" class="util-btn whitespace-nowrap"
+            title="Chuyển đổi giao diện Sáng / Tối" data-i18n-title="btn.themeTitle">
+            <span id="theme-icon" class="flex items-center justify-center">☀️</span>
+            <span id="theme-label" class="hidden md:inline whitespace-nowrap" data-i18n="btn.themeLight">Sáng</span>
+          </button>
 
-        <!-- Nút Âm Thanh & Góc Giáo Viên -->
-        <div class="flex items-center gap-2">
-          <button id="sound-toggle-btn"
-            class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-blue-600/30 text-blue-300 border border-blue-500/40 hover:bg-blue-600/40 transition">
-            🎀 Bật
+          <!-- Chuyển đổi Ngôn Ngữ VI / EN -->
+          <button id="lang-toggle-btn" onclick="app.toggleLanguage()" class="util-btn whitespace-nowrap"
+            title="Chuyển đổi ngôn ngữ Tiếng Việt / English" data-i18n-title="btn.langTitle">
+            <span id="lang-flag">🇻🇳</span>
+            <span id="lang-label" class="whitespace-nowrap">VI</span>
           </button>
-          <button onclick="app.showTab('more')"
-            class="teacher-shortcut hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border shadow-sm transition">
-            <span>🌷</span>
-            <span>Game toán</span>
+
+          <!-- Bật / Tắt Âm Thanh (Ribbon) -->
+          <button id="sound-toggle-btn" class="util-btn whitespace-nowrap"
+            title="Bật / Tắt âm thanh hiệu ứng" data-i18n-title="btn.soundTitle">
+            <span id="sound-icon" class="flex items-center justify-center">🎀</span>
+            <span id="sound-label" class="hidden md:inline whitespace-nowrap" data-i18n="btn.soundOn">Âm thanh</span>
           </button>
+
+          <!-- Nút Đăng Nhập / Thoát -->
+          <div id="auth-topbar-actions" class="flex items-center shrink-0 whitespace-nowrap"></div>
         </div>
       </div>
     </div>
 
-    <!-- Thanh Navigation Tabs Cuộn Ngang -->
+    <!-- HÀNG 2: THANH NAVIGATION TABS PHẲNG (ĐÚNG 4 TAB CHÍNH) -->
     <nav
-      class="max-w-7xl mx-auto px-4 py-2 border-t border-slate-800/60 overflow-x-auto flex gap-1.5 scrollbar-none text-xs font-bold">
+      class="max-w-7xl mx-auto px-4 py-1.5 overflow-x-auto flex gap-2 scrollbar-none text-xs font-bold">
+      <!-- TAB 1: TRANG CHỦ (MOON) -->
       <button onclick="app.showTab('home')" id="nav-home"
-        class="nav-tab-btn px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shrink-0 bg-blue-600 text-white shadow-lg">
-        <span>🐱</span><span>Trang Chủ</span>
+        class="nav-tab-btn active-tab px-3.5 py-1.5 rounded-xl transition flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+        <span class="nav-icon flex items-center justify-center" id="nav-icon-home">🌙</span><span data-i18n="nav.home">Trang chủ</span>
       </button>
-      <button onclick="app.showTab('topics')" id="nav-topics"
-        class="nav-tab-btn px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shrink-0 text-slate-400 hover:text-white hover:bg-slate-800">
-        <span>🌸</span><span>BT cơ bản</span>
+
+      <!-- TAB 2: BÀI TẬP (BUTTERFLY) -->
+      <button onclick="app.showTab('exercises')" id="nav-exercises"
+        class="nav-tab-btn px-3.5 py-1.5 rounded-xl transition flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+        <span class="nav-icon flex items-center justify-center" id="nav-icon-exercises">🦋</span><span data-i18n="nav.exercises">Bài tập</span>
       </button>
-      <button onclick="app.showTab('advanced')" id="nav-advanced"
-        class="nav-tab-btn px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shrink-0 text-amber-300 hover:text-white hover:bg-slate-800 border border-amber-500/40">
-        <span>⚡</span><span>BT Nâng Cao</span>
-        <span
-          class="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">Điền
-          số</span>
+
+      <!-- TAB 3: GAME (TULIP) -->
+      <button onclick="app.showTab('games')" id="nav-games"
+        class="nav-tab-btn px-3.5 py-1.5 rounded-xl transition flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+        <span class="nav-icon flex items-center justify-center" id="nav-icon-games">🌷</span><span data-i18n="nav.games">Game</span>
       </button>
+
+      <!-- TAB 4: MỞ RỘNG (RIBBON - KÈM BADGE ĐỎ NẾU CÓ BÀI TẬP ĐƯỢC GIAO) -->
       <button onclick="app.showTab('more')" id="nav-more"
-        class="nav-tab-btn px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shrink-0 text-purple-300 hover:text-white hover:bg-slate-800 border border-purple-500/40">
-        <span>🌷</span><span>Game mavis</span>
-        <span
-          class="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40">7
-          mục ▾</span>
+        class="nav-tab-btn px-3.5 py-1.5 rounded-xl transition flex items-center gap-1.5 shrink-0 relative whitespace-nowrap">
+        <span class="nav-icon flex items-center justify-center" id="nav-icon-more">🎀</span><span data-i18n="nav.more">Mở rộng</span>
+        <span id="more-nav-badge"
+          class="hidden px-1.5 py-0.2 text-[10px] font-black rounded-full bg-rose-500 text-white shadow-sm border border-white/20">0</span>
       </button>
     </nav>
   </header>
@@ -149,73 +187,162 @@
   <!-- ============================================================== -->
   <!-- MAIN VIEWS CONTAINER -->
   <!-- ============================================================== -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 pt-7 md:pt-8 pb-28 md:pb-32">
 
     <!-- 1. VIEW TRANG CHỦ -->
     <div id="view-home" class="tab-view">
-      <div id="home-content"></div>
+      <div id="home-content">
+        <!-- Loading Skeleton (Hiển thị trong lúc chờ API tải dữ liệu lần đầu) -->
+        <div id="home-skeleton" class="space-y-6 animate-pulse">
+          <div class="h-44 md:h-52 rounded-3xl p-6 flex flex-col justify-between" style="background: var(--card-bg); border: 2px solid var(--border-soft); box-shadow: 0 4px 16px var(--shadow-color);">
+            <div class="space-y-3">
+              <div class="w-36 h-5 rounded-full" style="background: var(--badge-bg);"></div>
+              <div class="w-3/4 max-w-md h-8 rounded-xl" style="background: var(--border-soft);"></div>
+              <div class="w-1/2 max-w-sm h-4 rounded-lg" style="background: var(--border-soft); opacity: 0.6;"></div>
+            </div>
+            <div class="flex gap-3 mt-4">
+              <div class="w-32 h-10 rounded-xl" style="background: var(--badge-bg);"></div>
+              <div class="w-32 h-10 rounded-xl" style="background: var(--border-soft);"></div>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="h-64 rounded-3xl p-6 flex flex-col justify-between card-berry">
+              <div class="space-y-3">
+                <div class="w-12 h-12 rounded-2xl" style="background: rgba(255, 77, 121, 0.2);"></div>
+                <div class="w-32 h-5 rounded-lg" style="background: rgba(255, 77, 121, 0.25);"></div>
+                <div class="w-full h-12 rounded-lg" style="background: rgba(255, 77, 121, 0.15);"></div>
+              </div>
+              <div class="w-full h-4 rounded" style="background: rgba(255, 77, 121, 0.2);"></div>
+            </div>
+            <div class="h-64 rounded-3xl p-6 flex flex-col justify-between card-honey">
+              <div class="space-y-3">
+                <div class="w-12 h-12 rounded-2xl" style="background: rgba(255, 183, 50, 0.25);"></div>
+                <div class="w-32 h-5 rounded-lg" style="background: rgba(255, 183, 50, 0.3);"></div>
+                <div class="w-full h-12 rounded-lg" style="background: rgba(255, 183, 50, 0.2);"></div>
+              </div>
+              <div class="w-full h-4 rounded" style="background: rgba(255, 183, 50, 0.25);"></div>
+            </div>
+            <div class="h-64 rounded-3xl p-6 flex flex-col justify-between card-caramel">
+              <div class="space-y-3">
+                <div class="w-12 h-12 rounded-2xl" style="background: rgba(200, 125, 75, 0.25);"></div>
+                <div class="w-32 h-5 rounded-lg" style="background: rgba(200, 125, 75, 0.3);"></div>
+                <div class="w-full h-12 rounded-lg" style="background: rgba(200, 125, 75, 0.2);"></div>
+              </div>
+              <div class="w-full h-4 rounded" style="background: rgba(200, 125, 75, 0.25);"></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- 2. VIEW LEO THÁP TRI THỨC -->
+    <!-- 2. VIEW BÀI TẬP (CHUYỂN NHANH 2 MỤC: BT CƠ BẢN VÀ BT NÂNG CAO) -->
+    <div id="view-exercises" class="tab-view hidden space-y-6">
+      <!-- Banner Tiêu Đề Bài Tập -->
+      <div class="hero-banner-warm relative rounded-3xl p-6 md:p-8 overflow-hidden shadow-xl">
+        <!-- Cành hoa đào trang trí góc trên phải -->
+        <img src="assets/icons/peach_branch.png" alt="" class="hero-peach-branch" loading="lazy" aria-hidden="true" />
+        <div class="relative z-10 max-w-2xl">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold mb-3 border"
+            style="background: var(--accent-rose-bg); color: var(--accent-rose-text); border-color: rgba(242, 109, 133, 0.25);">
+            <span>📚</span>
+            <span data-i18n="exercises.badge">HỌC TẬP & LUYỆN TẬP TOÁN 9</span>
+          </div>
+          <h2 class="text-2xl md:text-3xl font-black tracking-tight" style="color: var(--hero-title);">
+            <span data-i18n="exercises.title">Kho Bài Tập Toán 9</span>
+          </h2>
+          <p class="text-xs md:text-sm mt-2 leading-relaxed font-medium" style="color: var(--hero-text);">
+            <span data-i18n="exercises.subtitle">Tuyển chọn 10 chuyên đề bám sát chương trình GDPT 2018 và 48 bài toán thực tế nâng cao điền số từ SBT.</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- Thanh Chuyển Nhanh 2 Mục Nổi Bật -->
+      <div class="flex items-center justify-center p-1.5 rounded-2xl glass-card border border-stone-200 dark:border-stone-800 max-w-md mx-auto shadow-sm">
+        <button id="exercises-tab-btn-basic" onclick="app.switchExercisesSubtab('basic')"
+          class="flex-1 py-2.5 px-4 rounded-xl text-xs md:text-sm font-black transition flex items-center justify-center gap-2 bg-amber-400 text-stone-900 shadow-md">
+          <span>📖</span>
+          <span data-i18n="exercises.tabBasic">BT Cơ bản (GDPT 2018)</span>
+        </button>
+        <button id="exercises-tab-btn-advanced" onclick="app.switchExercisesSubtab('advanced')"
+          class="flex-1 py-2.5 px-4 rounded-xl text-xs md:text-sm font-black transition flex items-center justify-center gap-2 text-stone-500 hover:text-stone-800 dark:hover:text-stone-200">
+          <span>⚡</span>
+          <span data-i18n="exercises.tabAdvanced">BT Nâng cao (Điền số)</span>
+        </button>
+      </div>
+
+      <!-- Subview 1: Chuyên đề GDPT 2018 -->
+      <div id="exercises-subview-basic">
+        <div id="topics-content"></div>
+      </div>
+
+      <!-- Subview 2: Bài Tập Nâng Cao (Điền số) -->
+      <div id="exercises-subview-advanced" class="hidden">
+        <div id="advanced-content"></div>
+      </div>
+    </div>
+
+    <!-- 3. VIEW GAME (ĐẤU TRƯỜNG GAME VỚI 4 CHẾ ĐỘ) -->
+    <div id="view-games" class="tab-view hidden space-y-6">
+      <div id="games-content"></div>
+    </div>
+
+    <!-- 4. VIEW LEO THÁP TRI THỨC -->
     <div id="view-tower" class="tab-view hidden">
       <div id="tower-content"></div>
     </div>
 
-    <!-- 3. VIEW 60S TỐC ĐỘ -->
+    <!-- 5. VIEW 60S TỐC ĐỘ -->
     <div id="view-speed" class="tab-view hidden">
       <div id="speed-container"></div>
     </div>
 
-    <!-- 4. VIEW CHUYÊN ĐỀ GDPT 2018 -->
-    <div id="view-topics" class="tab-view hidden">
-      <div id="topics-content"></div>
-    </div>
+    <!-- 6. DUMMY VIEW CHO CÁC LIÊN KẾT CŨ -->
+    <div id="view-topics" class="tab-view hidden"></div>
+    <div id="view-advanced" class="tab-view hidden"></div>
 
-    <!-- 5. VIEW SONG ĐẤU 1v1 -->
+    <!-- 7. VIEW SONG ĐẤU 1v1 -->
     <div id="view-pvp" class="tab-view hidden">
       <div id="pvp-container"></div>
     </div>
 
-    <!-- 6. VIEW ĐỀ THI HỌC KỲ -->
+    <!-- 8. VIEW ĐỀ THI HỌC KỲ -->
     <div id="view-exams" class="tab-view hidden">
       <div id="exams-content"></div>
     </div>
 
-    <!-- 7. VIEW SỔ TAY CÔNG THỨC -->
+    <!-- 9. VIEW SỔ TAY CÔNG THỨC -->
     <div id="view-cheatsheet" class="tab-view hidden">
       <div id="cheatsheet-content"></div>
     </div>
 
-    <!-- 8. VIEW BẢNG VÀNG -->
+    <!-- 10. VIEW BẢNG VÀNG -->
     <div id="view-leaderboard" class="tab-view hidden">
       <div id="leaderboard-content"></div>
     </div>
 
-    <!-- 9. VIEW GÓC THẦY CÔ -->
+    <!-- 11. VIEW GÓC THẦY CÔ -->
     <div id="view-teacher" class="tab-view hidden">
       <div id="teacher-content"></div>
     </div>
 
-    <!-- 10. VIEW BÀI TẬP NÂNG CAO (ĐIỀN ĐÁP ÁN) -->
-    <div id="view-advanced" class="tab-view hidden">
-      <div id="advanced-content"></div>
-    </div>
-
-    <!-- 11. VIEW MỞ RỘNG (GOM CÁC TÍNH NĂNG) -->
-    <div id="view-more" class="tab-view hidden">
+    <!-- 12. VIEW MỞ RỘNG (GOM 4 TIỆN ÍCH HỌC TẬP & QUẢN LÝ) -->
+    <div id="view-more" class="tab-view hidden space-y-6">
       <div id="more-content"></div>
     </div>
+
+    <!-- 13. VIEW BÀI TẬP (GIAO & NHẬN BÀI TẬP) -->
+    <div id="view-homework" class="tab-view hidden space-y-6"></div>
 
   </main>
 
   <!-- FOOTER -->
-  <footer class="mt-auto py-6 border-t border-slate-800 text-center text-xs text-slate-500 no-print">
+  <footer class="mt-auto py-6 pb-28 md:pb-32 border-t text-center text-xs no-print" style="border-color: var(--border-soft); color: var(--text-muted);">
     <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-3">
       <div>
-        <span>Toán Học 9 - Chương Trình Giáo Dục Phổ Thông 2018</span>
+        <span data-i18n="footer.curriculum">Toán Học 9 - Chương Trình Giáo Dục Phổ Thông 2018</span>
       </div>
       <div>
-        <span>Thiết kế dành cho giáo viên & học sinh lớp 9 ôn thi hiệu quả</span>
+        <span data-i18n="footer.credit">Thiết kế dành cho giáo viên & học sinh lớp 9 ôn thi hiệu quả</span>
       </div>
     </div>
   </footer>
@@ -226,51 +353,59 @@
   <!-- CHATBOT HỎI ĐÁP TOÁN HỌC -->
   <section class="math-chat no-print" aria-label="Chatbot hỏi đáp Toán học">
     <div id="math-chat-panel" class="math-chat-panel" aria-labelledby="math-chat-title" hidden>
-      <div class="math-chat-header">
-        <div class="math-chat-avatar" aria-hidden="true">🐱</div>
+      <div id="math-chat-header" class="math-chat-header">
+        <div id="math-chat-avatar" class="math-chat-avatar flex items-center justify-center text-xl" aria-hidden="true">🐱</div>
         <div class="math-chat-heading">
-          <h2 id="math-chat-title">Mèo Toán Thông Thái</h2>
-          <p>Hỏi kiến thức Toán & ứng dụng đời sống</p>
+          <h2 id="math-chat-title" data-i18n="chat.name">Mèo Toán Thông Thái</h2>
+          <p data-i18n="chat.desc">Hỏi kiến thức Toán & ứng dụng đời sống</p>
         </div>
+        <button id="math-chat-dock" class="math-chat-close" type="button" title="Ghim về góc mặc định"
+          data-i18n-title="chat.dock" aria-label="Ghim về góc mặc định">📌</button>
         <button id="math-chat-reset" class="math-chat-close" type="button" title="Làm mới cuộc trò chuyện"
           aria-label="Làm mới">🔄</button>
         <button id="math-chat-close" class="math-chat-close" type="button" aria-label="Đóng khung chat">×</button>
       </div>
       <div id="math-chat-messages" class="math-chat-messages" role="log" aria-live="polite" aria-relevant="additions">
-        <div class="chat-message chat-message-bot">
+        <div class="chat-message chat-message-bot" data-i18n="chat.welcome">
           Chào bạn! Mình có thể giải thích kiến thức Toán cơ bản và gợi ý cách áp dụng vào đời sống. Bạn thử hỏi về phần
           trăm, phương trình, hình học hoặc thống kê nhé 🌸
         </div>
       </div>
       <div class="math-chat-suggestions" aria-label="Câu hỏi gợi ý">
-        <button type="button" class="chat-suggestion">Phần trăm dùng thế nào?</button>
-        <button type="button" class="chat-suggestion">Định lý Pythagore là gì?</button>
-        <button type="button" class="chat-suggestion">Ứng dụng phương trình?</button>
+        <button type="button" class="chat-suggestion" data-i18n="chat.sug1">Phần trăm dùng thế nào?</button>
+        <button type="button" class="chat-suggestion" data-i18n="chat.sug2">Định lý Pythagore là gì?</button>
+        <button type="button" class="chat-suggestion" data-i18n="chat.sug3">Ứng dụng phương trình?</button>
       </div>
       <form id="math-chat-form" class="math-chat-form">
         <label class="sr-only" for="math-chat-input">Nhập câu hỏi Toán học</label>
         <input id="math-chat-input" type="text" maxlength="500" autocomplete="off" placeholder="Nhập câu hỏi của bạn..."
-          required>
-        <button type="submit" aria-label="Gửi câu hỏi">Gửi</button>
+          data-i18n-placeholder="chat.placeholder" required>
+        <button type="submit" aria-label="Gửi câu hỏi" data-i18n="chat.send">Gửi</button>
       </form>
-      <p class="math-chat-disclaimer">Câu hỏi được gửi tới Google Gemini để trả lời. Đối chiếu lại lời giải với giáo
+      <p class="math-chat-disclaimer" data-i18n="chat.disclaimer">Câu hỏi được gửi tới Google Gemini để trả lời. Đối chiếu lại lời giải với giáo
         viên khi cần.</p>
     </div>
     <button id="math-chat-toggle" class="math-chat-toggle" type="button" aria-expanded="false"
       aria-controls="math-chat-panel">
-      <span aria-hidden="true">🐱</span>
-      <span>Hỏi Mèo Toán</span>
+      <span id="math-chat-toggle-icon" class="flex items-center justify-center text-xl shrink-0" aria-hidden="true">🐱</span>
+      <span data-i18n="chat.toggle">Hỏi Mèo Toán</span>
     </button>
   </section>
 
   <!-- JAVASCRIPT MODULES -->
-  <script src="js/data.js"></script>
-  <script src="js/advanced_data.js"></script>
-  <script src="js/audio.js"></script>
-  <script src="js/storage.js"></script>
-  <script src="js/game.js"></script>
-  <script src="js/app.js"></script>
-  <script src="js/chatbot.js"></script>
+  <script src="js/icons.js?v=20261124_4"></script>
+  <script src="js/sky-canvas.js?v=20261124_3"></script>
+  <script src="js/sparkle-touch.js?v=20261124_2"></script>
+  <script src="js/butterflies.js?v=20261124_3"></script>
+  <script src="js/i18n.js?v=20261124_2"></script>
+  <script src="js/data.js?v=20261124_2"></script>
+  <script src="js/advanced_data.js?v=20261124_2"></script>
+  <script src="js/audio.js?v=20261124_2"></script>
+  <script src="js/storage.js?v=20261124_2"></script>
+  <script src="js/game.js?v=20261124_2"></script>
+  <script src="js/homework.js?v=20261124_2"></script>
+  <script src="js/app.js?v=20261124_2"></script>
+  <script src="js/chatbot.js?v=20261124_2"></script>
 </body>
 
 </html>

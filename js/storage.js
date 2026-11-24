@@ -11,7 +11,7 @@ class StorageManager {
     this.SESSION_TOKEN_KEY = 'math9_session_token';
     this.USER_KEY = 'math9_current_user';
 
-    this.sessionToken = localStorage.getItem(this.SESSION_TOKEN_KEY) || null;
+    this.sessionToken = localStorage.getItem(this.SESSION_TOKEN_KEY) || localStorage.getItem('session_token') || null;
     this.currentUser = this.loadCurrentUser();
     this.clientId = this.getClientId();
     this.databaseSyncTimer = null;
@@ -21,7 +21,7 @@ class StorageManager {
 
   loadCurrentUser() {
     try {
-      const raw = localStorage.getItem(this.USER_KEY);
+      const raw = localStorage.getItem(this.USER_KEY) || localStorage.getItem('math9_current_user') || localStorage.getItem('user');
       return raw ? JSON.parse(raw) : null;
     } catch {
       return null;
@@ -128,11 +128,15 @@ class StorageManager {
     }
   }
 
-  async register(username, password, displayName, avatar) {
+  async register(username, password, displayName, avatar, email = null) {
+    const payload = { username, password, displayName, avatar };
+    if (email && String(email).trim()) {
+      payload.email = String(email).trim();
+    }
     const response = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, displayName, avatar })
+      body: JSON.stringify(payload)
     });
     const result = await response.json();
     if (!response.ok) {
@@ -140,6 +144,32 @@ class StorageManager {
     }
 
     this.applyAuthSuccess(result);
+    return result;
+  }
+
+  async updateEmail(email) {
+    const token = this.sessionToken || localStorage.getItem(this.SESSION_TOKEN_KEY) || localStorage.getItem('session_token');
+    if (!token) {
+      throw new Error('Bạn cần đăng nhập để cập nhật email.');
+    }
+    const cleanEmail = email ? String(email).trim() : '';
+    const response = await fetch('/api/auth/email', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ email: cleanEmail })
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || 'Cập nhật email thất bại.');
+    }
+    if (this.currentUser) {
+      this.currentUser.email = result.user ? result.user.email : cleanEmail;
+      localStorage.setItem(this.USER_KEY, JSON.stringify(this.currentUser));
+      localStorage.setItem('math9_current_user', JSON.stringify(this.currentUser));
+    }
     return result;
   }
 
@@ -162,6 +192,7 @@ class StorageManager {
     this.sessionToken = result.sessionToken;
     this.currentUser = result.user;
     localStorage.setItem(this.SESSION_TOKEN_KEY, this.sessionToken);
+    localStorage.setItem('session_token', this.sessionToken);
     localStorage.setItem(this.USER_KEY, JSON.stringify(this.currentUser));
 
     if (result.profile) {
@@ -178,15 +209,16 @@ class StorageManager {
   }
 
   async logout() {
-    if (this.sessionToken) {
+    const token = this.sessionToken || localStorage.getItem(this.SESSION_TOKEN_KEY) || localStorage.getItem('session_token');
+    if (token) {
       try {
         await fetch('/api/auth/logout', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.sessionToken}`
+            'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ sessionToken: this.sessionToken })
+          body: JSON.stringify({ sessionToken: token, session_token: token })
         });
       } catch (e) {
         console.warn('Lỗi gọi API đăng xuất:', e);
@@ -199,7 +231,12 @@ class StorageManager {
     this.sessionToken = null;
     this.currentUser = null;
     localStorage.removeItem(this.SESSION_TOKEN_KEY);
+    localStorage.removeItem('session_token');
+    localStorage.removeItem('math9_session_token');
+    localStorage.removeItem('SESSION_TOKEN');
     localStorage.removeItem(this.USER_KEY);
+    localStorage.removeItem('math9_current_user');
+    localStorage.removeItem('user');
     this.profile = this.getDefaultProfile();
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.profile));
   }

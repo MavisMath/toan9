@@ -12,6 +12,7 @@ import socket
 import os
 import sys
 import json
+import re
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -123,7 +124,25 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
         token_header = self.headers.get("X-Session-Token", "")
         if token_header:
             return token_header.strip()
+        query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+        if "token" in query:
+            return query["token"][0].strip()
         return None
+
+    def _require_auth(self):
+        token = self.get_session_token()
+        if not token:
+            self.send_json(401, {"error": "Yêu cầu đăng nhập để thực hiện thao tác này."})
+            return None
+        try:
+            data = database.get_user_by_session(token)
+            if not data or not data.get("user"):
+                self.send_json(401, {"error": "Phiên đăng nhập đã hết hạn hoặc không hợp lệ."})
+                return None
+            return data["user"]
+        except Exception as error:
+            self.send_json(503, {"error": f"Lỗi xác thực người dùng: {error}"})
+            return None
 
     def _read_json_payload(self, max_bytes=3 * 1024 * 1024):
         try:
@@ -207,6 +226,13 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
             query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             table_name = query.get("name", ["topics"])[0]
             limit = query.get("limit", [50])[0]
+
+            blocked_tables = {"users", "user_sessions", "user", "sessions"}
+            clean_name = (table_name or "").strip().lower()
+            if clean_name in blocked_tables:
+                self.send_json(403, {"error": f"Không được phép truy cập bảng '{table_name}' vì lý do bảo mật thông tin người dùng."})
+                return
+
             try:
                 data = database.get_table_rows(table_name, limit)
                 self.send_json(200, data)
@@ -214,6 +240,65 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json(400, {"error": str(error)})
             except Exception as error:
                 self.send_json(500, {"error": f"Lỗi truy vấn bảng '{table_name}': {error}"})
+            return
+
+        # -------------------------------------------------------------
+        # API TRA CỨU NGƯỜI NHẬN & HỆ THỐNG GIAO / NHẬN BÀI TẬP (GET)
+        # -------------------------------------------------------------
+        if path == "/api/users/lookup":
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            q = query.get("q", [""])[0]
+            try:
+                users = database.lookup_user(q)
+                self.send_json(200, {"users": users})
+            except Exception as error:
+                self.send_json(500, {"error": f"Lỗi tra cứu người dùng: {error}"})
+            return
+
+        if path == "/api/assignments/inbox":
+            user = self._require_auth()
+            if not user:
+                return
+            try:
+                assignments = database.get_inbox_assignments(user["userId"])
+                self.send_json(200, {"assignments": assignments})
+            except Exception as error:
+                self.send_json(500, {"error": f"Lỗi tải hộp bài tập nhận: {error}"})
+            return
+
+        if path == "/api/assignments/sent":
+            user = self._require_auth()
+            if not user:
+                return
+            try:
+                assignments = database.get_sent_assignments(user["userId"])
+                self.send_json(200, {"assignments": assignments})
+            except Exception as error:
+                self.send_json(500, {"error": f"Lỗi tải danh sách bài tập đã giao: {error}"})
+            return
+
+        if path == "/api/wrong-questions":
+            user = self._require_auth()
+            if not user:
+                return
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            mastered_param = query.get("mastered", [None])[0]
+            try:
+                wrong_q = database.get_wrong_questions(user["userId"], mastered_param)
+                self.send_json(200, {"wrongQuestions": wrong_q})
+            except Exception as error:
+                self.send_json(500, {"error": f"Lỗi đọc sổ tay câu sai: {error}"})
+            return
+
+        if path == "/api/reminders":
+            user = self._require_auth()
+            if not user:
+                return
+            try:
+                reminder = database.get_study_reminder(user["userId"])
+                self.send_json(200, {"reminder": reminder})
+            except Exception as error:
+                self.send_json(500, {"error": f"Lỗi đọc cấu hình nhắc học: {error}"})
             return
 
         super().do_GET()
@@ -246,7 +331,8 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                     payload.get("username"),
                     payload.get("password"),
                     payload.get("displayName"),
-                    payload.get("avatar")
+                    payload.get("avatar"),
+                    payload.get("email")
                 )
                 self.send_json(200, result)
             except ValueError as error:
@@ -273,10 +359,9 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
 
         if path == "/api/auth/logout":
             token = self.get_session_token()
-            if not token:
-                payload = self._read_json_payload(16 * 1024)
-                if isinstance(payload, dict):
-                    token = payload.get("sessionToken")
+            payload = self._read_json_payload(16 * 1024)
+            if not token and isinstance(payload, dict):
+                token = payload.get("sessionToken") or payload.get("session_token")
             try:
                 database.logout_user(token)
                 self.send_json(200, {"loggedOut": True})
@@ -303,6 +388,88 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json(400, {"error": str(error)})
             except Exception:
                 self.send_json(503, {"error": "Chưa lưu được dữ liệu vào Toan9_DB. Dữ liệu vẫn còn trong trình duyệt."})
+            return
+
+        # -------------------------------------------------------------
+        # API HỆ THỐNG GIAO / NHẬN BÀI TẬP, CÂU SAI & NHẮC HỌC (POST)
+        # -------------------------------------------------------------
+        if path == "/api/assignments/send":
+            user = self._require_auth()
+            if not user:
+                return
+            payload = self._read_json_payload(2 * 1024 * 1024)
+            if payload is None:
+                return
+            try:
+                result = database.create_assignment(
+                    user["userId"],
+                    payload.get("title"),
+                    payload.get("note"),
+                    payload.get("questionSource") or payload.get("source"),
+                    payload.get("questions", []),
+                    payload.get("dueDate") or payload.get("due_date"),
+                    payload.get("recipients", [])
+                )
+                if not result.get("created"):
+                    self.send_json(400, result)
+                else:
+                    self.send_json(200, result)
+            except ValueError as error:
+                self.send_json(400, {"error": str(error)})
+            except Exception as error:
+                self.send_json(500, {"error": f"Lỗi tạo bài tập: {error}"})
+            return
+
+        m_submit = re.match(r"^/api/assignments/(\d+)/submit$", path)
+        if m_submit:
+            user = self._require_auth()
+            if not user:
+                return
+            assignment_id = int(m_submit.group(1))
+            payload = self._read_json_payload(1024 * 1024)
+            if payload is None:
+                return
+            answers = payload.get("answers", payload)
+            try:
+                result = database.submit_assignment(assignment_id, user["userId"], answers)
+                self.send_json(200, result)
+            except ValueError as error:
+                self.send_json(400, {"error": str(error)})
+            except Exception as error:
+                self.send_json(500, {"error": f"Lỗi nộp bài tập: {error}"})
+            return
+
+        m_master = re.match(r"^/api/wrong-questions/(\d+)/master$", path)
+        if m_master:
+            user = self._require_auth()
+            if not user:
+                return
+            wrong_id = int(m_master.group(1))
+            try:
+                result = database.master_wrong_question(user["userId"], wrong_id)
+                self.send_json(200, result)
+            except ValueError as error:
+                self.send_json(400, {"error": str(error)})
+            except Exception as error:
+                self.send_json(500, {"error": f"Lỗi cập nhật câu đã hiểu: {error}"})
+            return
+
+        if path == "/api/reminders":
+            user = self._require_auth()
+            if not user:
+                return
+            payload = self._read_json_payload(16 * 1024)
+            if payload is None:
+                return
+            try:
+                daily_time = payload.get("dailyTime") or payload.get("daily_time")
+                enabled = payload.get("enabled", True)
+                result = database.save_study_reminder(user["userId"], daily_time, enabled)
+                self.send_json(200, result)
+            except ValueError as error:
+                self.send_json(400, {"error": str(error)})
+            except Exception as error:
+                self.send_json(500, {"error": f"Lỗi lưu cấu hình nhắc học: {error}"})
             return
 
         if path != "/api/chat":
@@ -439,6 +606,58 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
 
         self.send_json(200, {"answer": answer})
 
+
+
+    def do_PUT(self):
+        try:
+            self._handle_put()
+        except Exception as error:
+            self.send_json(500, {"error": f"Lỗi máy chủ (PUT): {error}"})
+
+    def _handle_put(self):
+        path = urllib.parse.unquote(urllib.parse.urlsplit(self.path).path)
+        if path == "/api/auth/email":
+            user = self._require_auth()
+            if not user:
+                return
+            payload = self._read_json_payload(16 * 1024)
+            if payload is None:
+                return
+            try:
+                new_email = database.update_user_email(user["userId"], payload.get("email"))
+                self.send_json(200, {"updated": True, "email": new_email})
+            except ValueError as error:
+                self.send_json(400, {"error": str(error)})
+            except Exception as error:
+                self.send_json(500, {"error": f"Lỗi cập nhật email: {error}"})
+            return
+
+        self.send_json(404, {"error": "Endpoint PUT không tồn tại."})
+
+    def do_DELETE(self):
+        try:
+            self._handle_delete()
+        except Exception as error:
+            self.send_json(500, {"error": f"Lỗi máy chủ (DELETE): {error}"})
+
+    def _handle_delete(self):
+        path = urllib.parse.unquote(urllib.parse.urlsplit(self.path).path)
+        m_del = re.match(r"^/api/assignments/(\d+)$", path)
+        if m_del:
+            user = self._require_auth()
+            if not user:
+                return
+            assignment_id = int(m_del.group(1))
+            try:
+                result = database.delete_assignment(assignment_id, user["userId"])
+                self.send_json(200, result)
+            except ValueError as error:
+                self.send_json(400, {"error": str(error)})
+            except Exception as error:
+                self.send_json(500, {"error": f"Lỗi xóa bài tập: {error}"})
+            return
+
+        self.send_json(404, {"error": "Endpoint DELETE không tồn tại."})
 
 def main():
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
