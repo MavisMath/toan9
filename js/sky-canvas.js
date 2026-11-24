@@ -379,6 +379,7 @@ class SkyCanvas {
 
   render(time, dt) {
     const motionFactor = this.prefersReducedMotion ? 0.08 : 1.0;
+    const effectsEnabled = typeof window === 'undefined' || window.__MAVIS_EFFECTS_ENABLED__ !== false;
 
     this.ctx.clearRect(0, 0, this.width, this.height);
 
@@ -387,16 +388,22 @@ class SkyCanvas {
       this.renderDarkMeadow(time, dt * motionFactor);
     } else {
       this.renderLightSky(time, dt * motionFactor);
-      this.renderBirds(time, dt * motionFactor);
+      if (effectsEnabled) {
+        this.renderBirds(time, dt * motionFactor);
+      }
       this.renderLightMeadow(time, dt * motionFactor);
     }
 
     // Dòng chảy Toán học & Thời gian thanh lịch
-    this.renderTimeArcs(time, dt * motionFactor);
-    this.renderMathStream(time, dt * motionFactor);
+    if (effectsEnabled) {
+      this.renderTimeArcs(time, dt * motionFactor);
+      this.renderMathStream(time, dt * motionFactor);
+    }
 
     // Cánh hoa anh đào rơi xoay nhẹ
-    this.renderPetals(time, dt * motionFactor);
+    if (effectsEnabled) {
+      this.renderPetals(time, dt * motionFactor);
+    }
   }
 
   // -------------------------------------------------------------
@@ -632,8 +639,10 @@ class SkyCanvas {
     // Ngôi sao lấp lánh ánh vàng rực
     this.renderStars(time);
 
-    // Sao băng thỉnh thoảng lướt qua
-    this.renderShootingStars(time, dt);
+    // Sao băng thỉnh thoảng lướt qua (khi bật hiệu ứng)
+    if (typeof window === 'undefined' || window.__MAVIS_EFFECTS_ENABLED__ !== false) {
+      this.renderShootingStars(time, dt);
+    }
 
     // Mặt trăng khuyết góc trên phải
     this.renderCrescentMoon(time);
@@ -841,8 +850,10 @@ class SkyCanvas {
 
     ctx.restore();
 
-    // 4. Đom đóm đêm vàng phát sáng bay chậm
-    this.renderFireflies(time, dt);
+    // 4. Đom đóm đêm vàng phát sáng bay chậm (khi bật hiệu ứng)
+    if (typeof window === 'undefined' || window.__MAVIS_EFFECTS_ENABLED__ !== false) {
+      this.renderFireflies(time, dt);
+    }
   }
 
   renderFireflies(time, dt) {
