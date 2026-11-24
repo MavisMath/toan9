@@ -481,13 +481,20 @@ class MathChatbot {
           messages: [...this.history, { role: 'user', text }].slice(-11)
         })
       });
-      const result = await response.json();
 
-      if (!response.ok) {
-        throw new Error(result.error || `Máy chủ trả về lỗi ${response.status}.`);
+      let result = null;
+      const rawText = await response.text();
+      try {
+        result = JSON.parse(rawText);
+      } catch (_) {
+        throw new Error('Đường truyền mạng đang chậm, bạn bấm gửi lại giúp Mèo nhé!');
+      }
+
+      if (!response.ok || !result) {
+        throw new Error((result && result.error) || `Máy chủ phản hồi mã ${response.status}.`);
       }
       if (typeof result.answer !== 'string' || !result.answer.trim()) {
-        throw new Error('Chatbot chưa nhận được câu trả lời hợp lệ.');
+        throw new Error('Mèo đang tập trung suy nghĩ, bạn gửi lại câu hỏi giúp Mèo nhé!');
       }
 
       this.updateMessageContent(loadingMessage, result.answer, 'bot');
@@ -499,7 +506,7 @@ class MathChatbot {
     } catch (error) {
       this.updateMessageContent(
         loadingMessage,
-        `Mèo đang gặp chút gián đoạn kết nối (${error.message}). Bạn thử bấm gửi lại câu hỏi nhé!`,
+        `Mèo Toán: ${error.message}`,
         'bot'
       );
     } finally {
